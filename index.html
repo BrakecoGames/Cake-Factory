@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<!--
+  Cake Factory – Sweet Automation
+  © 2026 Brakeco Games. All rights reserved.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Cake Factory – Sweet Automation</title>
+  <meta name="author" content="Brakeco Games" />
+  <meta name="copyright" content="© 2026 Brakeco Games" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/styles.css" />
+  <!-- Used when the game runs without a bundler (e.g. hosted preview). The Vite
+       build bundles Three.js locally and strips this block (see vite.config.js). -->
+  <script type="importmap" data-dev-only>
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div id="viewport"></div>
+
+    <!-- ===================== HUD ===================== -->
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="logo-chip">
+          <svg viewBox="0 0 40 40" class="logo-icon" aria-hidden="true"><ellipse cx="20" cy="30" rx="16" ry="5" fill="#fff"/><rect x="7" y="17" width="26" height="12" rx="4" fill="#ffe6a3"/><path d="M7 21c3 3 6-2 9 1s6-2 9 1 5-1 8 0v-4a4 4 0 0 0-4-4H11a4 4 0 0 0-4 4z" fill="#ff8fb1"/><circle cx="20" cy="11" r="3.5" fill="#e8344e"/><path d="M20 8c1-3 3-4 5-4" stroke="#4fbf90" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          <div>
+            <div class="logo-text">Cake Factory</div>
+            <div class="level-text">Level <span id="level">1</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="hud-center">
+        <div class="stat money"><span class="coin">$</span><span id="money">500</span></div>
+        <div class="stat small" title="Income per minute"><span class="lbl">Income</span><span id="income">$0</span>/min</div>
+        <div class="stat small" title="Correct cakes delivered per minute"><span class="lbl">Cakes</span><span id="rate">0</span>/min</div>
+      </div>
+      <div class="hud-right">
+        <div id="saveStatus" class="save-status" title="Save status">—</div>
+        <button class="icon-btn upg-btn" id="btnUpgrades" title="Bakery Upgrades" aria-label="Bakery upgrades">⬆</button>
+        <button class="icon-btn" id="btnHelp" title="Help (H)" aria-label="Help">?</button>
+        <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+        </button>
+        <button class="icon-btn" id="btnPause" title="Pause (P)" aria-label="Pause">
+          <svg viewBox="0 0 24 24" id="pauseIcon"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===================== ORDER PANEL ===================== -->
+    <aside id="orderPanel" class="card hidden">
+      <div class="order-head">
+        <div class="order-kicker">Current order</div>
+        <button id="orderToggle" class="mini-btn" aria-label="Collapse order">–</button>
+      </div>
+      <div class="order-body">
+        <div class="order-name" id="orderName">Vanilla Delight</div>
+        <div class="order-customer" id="orderCustomer">for Grandma Rosa</div>
+        <div class="order-cake">
+          <canvas id="orderCake" width="120" height="120" title="Click to inspect the cake"></canvas>
+          <div class="order-desc" id="orderDesc">Whole vanilla cake</div>
+        </div>
+        <div class="progress"><div class="bar" id="orderBar"></div><div class="progress-text" id="orderProgress">0 / 5</div></div>
+        <div class="order-rewards">
+          <div><span class="lbl">Per cake</span><b id="orderPer">$10</b></div>
+          <div><span class="lbl">Reward</span><b id="orderReward">$100</b></div>
+        </div>
+        <div class="bonus" id="orderBonus"></div>
+        <div class="order-hint" id="orderHint"></div>
+      </div>
+    </aside>
+
+    <!-- ===================== INSPECTOR ===================== -->
+    <aside id="inspector" class="card hidden">
+      <button class="close-x" id="inspClose" aria-label="Close">×</button>
+      <div class="insp-title" id="inspTitle">Machine</div>
+      <div class="insp-status" id="inspStatus"></div>
+      <div class="insp-body" id="inspBody"></div>
+      <div id="inspConfig" class="hidden"></div>
+      <div id="inspUpgradeBox" class="hidden">
+        <div id="inspUpgradeInfo"></div>
+        <button class="btn small primary" id="inspUpgrade">Upgrade</button>
+      </div>
+      <canvas id="inspCake" width="96" height="96" class="hidden" title="Click to inspect"></canvas>
+      <div class="insp-actions">
+        <button class="btn small" id="inspRotate">Rotate <kbd>R</kbd></button>
+        <button class="btn small" id="inspMove">Move</button>
+        <button class="btn small danger" id="inspRemove">Remove</button>
+      </div>
+    </aside>
+
+    <!-- ===================== TUTORIAL ===================== -->
+    <div id="tutorial" class="hidden">
+      <div class="tut-step" id="tutStep">1/6</div>
+      <div class="tut-title" id="tutTitle"></div>
+      <div class="tut-text" id="tutText"></div>
+      <div class="tut-hint hidden" id="tutHint"></div>
+      <div class="tut-actions">
+        <button class="btn small ghost" id="tutSkip">Skip tutorial</button>
+        <button class="btn small primary hidden" id="tutNext">Got it</button>
+      </div>
+    </div>
+
+    <!-- ===================== TOOLBAR ===================== -->
+    <div id="toolbarWrap" class="hidden">
+      <div id="floatControls">
+        <button class="float-btn hidden" id="btnRotateGhost" title="Rotate (R)">⟳ Rotate</button>
+      </div>
+      <nav id="toolbar" aria-label="Build tools"></nav>
+    </div>
+    <div id="camControls" class="hidden">
+      <button class="cam-btn" id="camZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+      <button class="cam-btn" id="camZoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="cam-btn" id="camRotL" title="Rotate view (Q)" aria-label="Rotate view left">↺</button>
+      <button class="cam-btn" id="camRotR" title="Rotate view (E)" aria-label="Rotate view right">↻</button>
+      <button class="cam-btn" id="camTiltUp" title="Tilt to top-down (Page Up)" aria-label="Tilt view up">⤒</button>
+      <button class="cam-btn" id="camTiltDown" title="Tilt toward the horizon (Page Down)" aria-label="Tilt view down">⤓</button>
+      <button class="cam-btn wide" id="camReset" title="Reset view (Home)" aria-label="Reset view">⌂</button>
+    </div>
+
+    <div id="toasts"></div>
+    <div id="popups"></div>
+    <div id="cursorTip" class="hidden"></div>
+    <div id="debug" class="hidden"></div>
+
+    <!-- ===================== SCREENS ===================== -->
+    <div id="startScreen" class="screen">
+      <div class="start-bg"></div>
+      <div class="start-card">
+        <svg viewBox="0 0 120 100" class="start-logo" aria-hidden="true">
+          <ellipse cx="60" cy="84" rx="50" ry="10" fill="#fff"/>
+          <rect x="18" y="56" width="84" height="26" rx="8" fill="#f6dfa4"/>
+          <rect x="24" y="34" width="72" height="24" rx="8" fill="#7a4a2e"/>
+          <path d="M24 42c6 6 12-3 18 2s12-3 18 1 12-3 18 1 12-2 18 0v-4a8 8 0 0 0-8-8H32a8 8 0 0 0-8 8z" fill="#ff8fb1"/>
+          <path d="M18 62c6 6 12-3 18 2s12-3 18 1 12-3 18 1 12-3 18 1 6-2 12 0v-4a8 8 0 0 0-8-8H26a8 8 0 0 0-8 8z" fill="#fffaf2"/>
+          <circle cx="60" cy="24" r="8" fill="#e8344e"/><path d="M60 17c2-6 7-9 12-9" stroke="#4fbf90" stroke-width="4" fill="none" stroke-linecap="round"/>
+        </svg>
+        <h1>Cake Factory</h1>
+        <div class="subtitle">Sweet Automation</div>
+        <p class="tagline">Design bakery production lines, automate every cake and fill sweet orders.</p>
+        <div class="start-buttons">
+          <button class="btn primary big" id="btnPlay">Play</button>
+          <button class="btn big hidden" id="btnNewGame">New Game</button>
+        </div>
+        <div class="start-info" id="startInfo"></div>
+        <div class="copyright">© 2026 Brakeco Games</div>
+      </div>
+    </div>
+
+    <div id="modal" class="screen hidden">
+      <div class="modal-card" id="modalCard"></div>
+    </div>
+
+    <div id="pauseOverlay" class="hidden"><div class="pause-pill">Paused — press P or ▶ to resume</div></div>
+
+    <div id="fatal" class="screen hidden">
+      <div class="modal-card"><h2>Oh no!</h2><p id="fatalText"></p><div class="copyright">© 2026 Brakeco Games</div></div>
+    </div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
