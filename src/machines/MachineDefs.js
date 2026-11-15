@@ -53,6 +53,7 @@ export const MACHINE_DEFS = Object.freeze({
     outputs: [{ x: 0, y: 0, dir: DIR.E, slot: 0 }],
     processTime: 1.0, stage: { x: 0.5, y: 0.5 },
     paths: { in: [[[0, 0.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]]] },
+    ownBelt: false, // turntable machine: cakes slide on and off the turntable
     defaultConfig: { color: 'pink', mask: [true, true, true, true] },
     hotkey: '3',
   },
@@ -76,6 +77,7 @@ export const MACHINE_DEFS = Object.freeze({
     outputs: [{ x: 0, y: 0, dir: DIR.E, slot: 0 }],
     processTime: 0.6, stage: { x: 0.5, y: 0.5 },
     paths: { in: [[[0, 0.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]]] },
+    ownBelt: false,
     defaultConfig: { mode: 'cw' },
     hotkey: '5',
   },

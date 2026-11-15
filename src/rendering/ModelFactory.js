@@ -253,6 +253,14 @@ function displayTexture() {
   return _displayTex;
 }
 
+/** Small steel plates that bridge from the belt's end roller onto a turntable (and off again). */
+function transferPlates(g, tableR) {
+  const len = 0.5 - tableR + 0.02;
+  for (const side of [-1, 1]) {
+    g.add(mesh(roundedBox(len, 0.025, 0.7, 0.01), mat('#cfd4db', { metalness: 0.75, roughness: 0.3 }), side * (0.5 - len / 2), SURF - 0.012, 0));
+  }
+}
+
 /**
  * Frosting machine (1×1), modelled on a cake-icing machine: a pink body,
  * a stainless turntable in the belt (the cake spins on it), and a column
@@ -282,6 +290,7 @@ export function buildFroster() {
     ring.rotation.x = Math.PI / 2; ring.position.y = 0.017; table.add(ring);
   }
   g.add(table);
+  transferPlates(g, 0.35);
   // Pink column at the back (north) edge, outside the cake's reach.
   g.add(mesh(roundedBox(0.4, 0.82, 0.1, 0.04), mat(pink), -0.2, SURF + 0.1 + 0.41, -0.45));
   g.add(mesh(roundedBox(0.42, 0.06, 0.12, 0.03), mat(pinkDark), -0.2, SURF + 0.1 + 0.84, -0.45));
@@ -354,6 +363,7 @@ export function buildRotator() {
   arc.rotation.x = -Math.PI / 2; arc.position.y = 0.012;
   table.add(arc);
   g.add(table);
+  transferPlates(g, 0.33);
   return { group: g, parts: { table } };
 }
 

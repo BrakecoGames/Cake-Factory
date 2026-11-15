@@ -23,7 +23,8 @@ const GUARD_W = 0.05;            // white side guard thickness
 const GUARD_UP = 0.045;          // guard height above the belt
 const GUARD_DOWN = 0.07;         // guard depth below the belt
 const LEG_W = 0.06;
-const TRIM = 0.12;               // secondary machine paths stop short of the stage
+const TRIM = 0.12;
+const ROLLER_R = 0.055;          // end roller radius (belt surface is tangent to its top)               // secondary machine paths stop short of the stage
 const dirAngle = (d) => -d * Math.PI / 2;
 
 const GUARD = new THREE.Color('#f7f6f2');
@@ -127,7 +128,10 @@ export class ConveyorRenderer {
       under: new THREE.BoxGeometry(1, 0.04, BW),
       leg: (() => { const g = new THREE.BoxGeometry(LEG_W, 1, LEG_W); g.translate(0, 0.5, 0); return g; })(),
       foot: new THREE.CylinderGeometry(0.045, 0.05, 0.02, 12),
-      endCap: roundedBox(0.06, GUARD_UP + GUARD_DOWN + 0.02, BW + GUARD_W * 2 + 0.02, 0.015, 2),
+      // End roller: the belt wraps over this drum; bearing caps sit outside the side guards.
+      drum: (() => { const g = new THREE.CylinderGeometry(ROLLER_R, ROLLER_R, BW + 0.02, 18); g.rotateX(Math.PI / 2); return g; })(),
+      bearing: (() => { const g = new THREE.CylinderGeometry(ROLLER_R + 0.03, ROLLER_R + 0.03, 0.035, 20); g.rotateX(Math.PI / 2); return g; })(),
+      hub: (() => { const g = new THREE.CylinderGeometry(0.03, 0.03, 0.045, 12); g.rotateX(Math.PI / 2); return g; })(),
       cornerTop: [curvedBelt(false), curvedBelt(true)],
       cornerGuard: [mergeCurved(false), mergeCurved(true)],
       cornerUnder: [curvedBox(false, 0.5 - BW / 2, 0.5 + BW / 2, -0.05, -0.01), curvedBox(true, 0.5 - BW / 2, 0.5 + BW / 2, -0.05, -0.01)],
@@ -144,7 +148,7 @@ export class ConveyorRenderer {
   }
 
   _alloc(segments) {
-    const old = [this.guard, this.under, this.leg, this.foot, this.endCap, ...(this.cTop || []), ...(this.cGuard || []), ...(this.cUnder || []), ...this.topMeshes.values()];
+    const old = [this.guard, this.under, this.leg, this.foot, this.drum, this.bearing, this.hub, ...(this.cTop || []), ...(this.cGuard || []), ...(this.cUnder || []), ...this.topMeshes.values()];
     for (const m of old) if (m) { this.scene.remove(m); m.dispose(); }
     this.topMeshes.clear();
     this.capacity = segments;
@@ -152,7 +156,9 @@ export class ConveyorRenderer {
     this.under = this._inst(this.geo.under, this.aluMat, segments, { shadow: false });
     this.leg = this._inst(this.geo.leg, this.aluMat, segments * 2);
     this.foot = this._inst(this.geo.foot, new THREE.MeshStandardMaterial({ color: '#3a3d44', roughness: 0.8 }), segments * 2, { shadow: false });
-    this.endCap = this._inst(this.geo.endCap, new THREE.MeshStandardMaterial({ color: '#33363d', roughness: 0.6, metalness: 0.2 }), segments * 2);
+    this.drum = this._inst(this.geo.drum, new THREE.MeshStandardMaterial({ color: '#c7ccd4', roughness: 0.3, metalness: 0.8 }), segments * 2);
+    this.bearing = this._inst(this.geo.bearing, new THREE.MeshStandardMaterial({ color: '#33363d', roughness: 0.5, metalness: 0.3 }), segments * 4);
+    this.hub = this._inst(this.geo.hub, new THREE.MeshStandardMaterial({ color: '#d9dde3', roughness: 0.25, metalness: 0.9 }), segments * 4);
     this.cTop = this.geo.cornerTop.map((g) => this._inst(g, this.topMat, segments, { shadow: false }));
     this.cGuard = this.geo.cornerGuard.map((g) => this._inst(g, this.guardMat, segments, { color: true }));
     this.cUnder = this.geo.cornerUnder.map((g) => this._inst(g, this.aluMat, segments, { shadow: false }));
@@ -214,8 +220,17 @@ export class ConveyorRenderer {
       this.guardOwner[this.n.guard] = owner;
       put(this.guard, this.n.guard++, 0, (GUARD_UP - GUARD_DOWN) / 2, side * (BW / 2 + GUARD_W / 2), len);
     }
-    if (tail) put(this.endCap, this.n.cap++, -len / 2 - 0.03, (GUARD_UP - GUARD_DOWN) / 2, 0);
-    if (head) put(this.endCap, this.n.cap++, len / 2 + 0.03, (GUARD_UP - GUARD_DOWN) / 2, 0);
+    // The belt ends over a roller (and starts again over one) – visible drum + bearing caps.
+    const roller = (x) => {
+      put(this.drum, this.n.cap++, x, -ROLLER_R, 0);
+      for (const side of [-1, 1]) {
+        const z = side * (BW / 2 + GUARD_W + 0.018);
+        put(this.bearing, this.n.bear, x, -ROLLER_R, z);
+        put(this.hub, this.n.bear++, x, -ROLLER_R, z + side * 0.012);
+      }
+    };
+    if (tail) roller(-len / 2 + ROLLER_R);
+    if (head) roller(len / 2 - ROLLER_R);
     if (legs && len >= 0.5 && !lift) this._legPair(cx, cz, yaw);
     this.n.seg++;
   }
@@ -247,7 +262,7 @@ export class ConveyorRenderer {
 
   rebuild(sim) {
     this.sim = sim;
-    this.n = { seg: 0, guard: 0, cap: 0, leg: 0, foot: 0, corner: [0, 0] };
+    this.n = { seg: 0, guard: 0, cap: 0, bear: 0, leg: 0, foot: 0, corner: [0, 0] };
     for (const m of this.topMeshes.values()) m.count = 0;
     this.cornerInfo.clear();
     this.guardOwner = [];
@@ -269,18 +284,26 @@ export class ConveyorRenderer {
         continue;
       }
       this._seg(b.x + 0.5 - DX[b.dir] * 0.5, b.y + 0.5 - DY[b.dir] * 0.5, b.dir, 1, {
-        tail: !fb && !fl && !fr, head: !this._continuesSafe(b), owner: b,
+        // Rollers wherever the belt does not continue into / come from another belt:
+        // line ends and every machine connection (the machine has its own transfer).
+        tail: !this._beltFeeds(b, back) && !this._beltFeeds(b, left) && !this._beltFeeds(b, right),
+        head: !this._continuesOnBelt(b), owner: b,
       });
     }
 
     for (const e of sim.entities.values()) {
       if (e.kind !== 'machine') continue;
       const paths = e.def.paths;
-      if (!paths) continue;
+      // Machines with a turntable (froster, rotator) have no belt of their own:
+      // the line ends over a roller before them and starts again after them.
+      if (!paths || e.def.ownBelt === false) continue;
       const st = e.def.stage;
       const all = [...paths.in.map((p, i) => ({ p, sec: i > 0, endsAtStage: true })), ...paths.out.map((p, i) => ({ p, sec: i > 0, endsAtStage: false }))];
       for (const { p, sec, endsAtStage } of all) {
         for (let k = 1; k < p.length; k++) {
+          // Rollers at the machine's entry and exit edges (not under the stage).
+          const tailRoller = endsAtStage && k === 1;
+          const headRoller = !endsAtStage && k === p.length - 1;
           let [ax, ay] = p[k - 1], [bx, by] = p[k];
           const vertical = ax === bx;
           const touchesStage = endsAtStage ? (bx === st.x && by === st.y) : (ax === st.x && ay === st.y);
@@ -295,16 +318,29 @@ export class ConveyorRenderer {
           const [wbx, wby] = rotatePoint(bx, by, e.def.w, e.def.h, e.rot);
           const dx = wbx - wax, dy = wby - way;
           const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
-          this._seg(e.x + wax, e.y + way, dir, Math.hypot(dx, dy), { legs: false, owner: null, lift });
+          this._seg(e.x + wax, e.y + way, dir, Math.hypot(dx, dy), { legs: false, owner: null, lift, tail: tailRoller, head: headRoller });
         }
       }
     }
 
-    this.under.count = this.n.seg; this.guard.count = this.n.guard; this.endCap.count = this.n.cap;
+    this.under.count = this.n.seg; this.guard.count = this.n.guard;
+    this.drum.count = this.n.cap; this.bearing.count = this.n.bear; this.hub.count = this.n.bear;
     this.leg.count = this.n.leg; this.foot.count = this.n.foot;
     for (let k = 0; k < 2; k++) { this.cTop[k].count = this.cUnder[k].count = this.cGuard[k].count = this.n.corner[k]; }
-    for (const m of [this.under, this.guard, this.endCap, this.leg, this.foot, ...this.cTop, ...this.cUnder, ...this.cGuard, ...this.topMeshes.values()]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [this.under, this.guard, this.drum, this.bearing, this.hub, this.leg, this.foot, ...this.cTop, ...this.cUnder, ...this.cGuard, ...this.topMeshes.values()]) m.instanceMatrix.needsUpdate = true;
     if (this._grow) { this._grow = false; this._alloc(this.capacity * 2); this.rebuild(sim); }
+  }
+
+  /** Only another BELT feeding b from side s (machines don't count – the belt starts over a roller there). */
+  _beltFeeds(b, s) {
+    const n = this.sim.entityAt(b.x + DX[s], b.y + DY[s]);
+    return !!n && n.kind === 'belt' && n.x + DX[n.dir] === b.x && n.y + DY[n.dir] === b.y;
+  }
+
+  /** True when the cake continues on another belt (not into a machine or nothing). */
+  _continuesOnBelt(b) {
+    const n = this.sim.entityAt(b.x + DX[b.dir], b.y + DY[b.dir]);
+    return !!n && n.kind === 'belt' && n.dir !== opposite(b.dir);
   }
 
   /** True when the next cell takes the cake (belt not pointing back, or a machine input). */

@@ -22,9 +22,19 @@ const QUAD_ROT = [Math.PI, Math.PI / 2, 0, Math.PI * 1.5]; // TL, TR, BR, BL
 const QUAD_DIR = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, z]) => [x / Math.SQRT2, z / Math.SQRT2]);
 const DECOR_COLORS = { cherry: '#e8344e', sprinkles: '#ff9ad5', chocolate: '#5a3221', strawberry: '#ff4d6d', swirl: '#fffaf2' };
 
+/**
+ * SOLID quarter wedge (top, bottom, curved side AND both flat cut faces),
+ * built as an extruded quarter-circle so cakes never look hollow.
+ * Occupies the BR quadrant (+X, +Z), from y = 0 to y = h.
+ */
 function quarterGeo(r, h) {
-  const g = new THREE.CylinderGeometry(r, r, h, 12, 1, false, 0, Math.PI / 2);
-  g.translate(0, h / 2, 0);
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(0, -r);
+  shape.absarc(0, 0, r, -Math.PI / 2, 0, false);
+  shape.lineTo(0, 0);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 14 });
+  g.rotateX(-Math.PI / 2); // extrusion → +Y; shape −Y → +Z (normals rotate along, curved side stays smooth)
   return g;
 }
 
