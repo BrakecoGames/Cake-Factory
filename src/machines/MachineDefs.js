@@ -91,8 +91,12 @@ export const MACHINE_DEFS = Object.freeze({
     inputs: [{ x: 0, y: 0, dir: DIR.W, slot: 0 }, { x: 0, y: 1, dir: DIR.W, slot: 1 }],
     outputs: [{ x: 0, y: 0, dir: DIR.E, slot: 0 }],
     processTime: 1.2, stage: { x: 0.5, y: 0.5 },
-    // Piece A rides straight in; piece B comes in below and is carried up to meet it.
+    // Piece A rides straight in on the main lane. Piece B rides the second lane to
+    // the pick-up point (0.5, 1.5); a gantry robot then lifts it across onto piece A.
     paths: { in: [[[0, 0.5], [0.5, 0.5]], [[0, 1.5], [0.5, 1.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]]] },
+    beltRuns: [[[0, 0.5], [1, 0.5]], [[0, 1.5], [0.5, 1.5]]],
+    /** While the stage is busy, waiting input i stops at this fraction of its path (B: at pick-up). */
+    inHold: [null, 1 / 3],
     hotkey: '6',
   },
   trash: {

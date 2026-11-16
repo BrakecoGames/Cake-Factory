@@ -82,7 +82,8 @@ export class Processor extends Machine {
     for (let i = 0; i < this.nIn; i++) {
       if (!this.inSlots[i]) continue;
       // While the stage is busy, a waiting cake keeps its distance.
-      const cap = this.working ? Math.max(0, 1 - BELT.MIN_SPACING / this.inLen[i]) : 1;
+      const hold = this.def.inHold?.[i];
+      const cap = this.working ? (hold ?? Math.max(0, 1 - BELT.MIN_SPACING / this.inLen[i])) : 1;
       this.inProg[i] = Math.max(this.inProg[i], Math.min(cap, this.inProg[i] + step / this.inLen[i]));
     }
     for (let i = 0; i < this.nOut; i++) {

@@ -543,11 +543,34 @@ export class FactoryRenderer {
     for (let i = 0; i < e.nIn; i++) {
       const c = e.inSlots[i];
       if (!c) continue;
+      if (e.type === 'combiner' && i === 1) {
+        // Piece B: on its belt, then lifted across by the gantry robot.
+        const r = this._combinerB(e);
+        this._machinePoint(e, 0.5 + r.x, 1 + r.z, r.y, tmp);
+        this.cakes.add(c, tmp.x, tmp.y, tmp.z);
+        continue;
+      }
       pointAt(paths.in[i], e.inProg[i], pt);
-      const lift = i > 0 && e.inProg[i] > 0.5 ? 0.03 : 0;
-      this._machinePoint(e, pt[0], pt[1], CAKE_Y + lift, tmp);
+      this._machinePoint(e, pt[0], pt[1], CAKE_Y, tmp);
       this.cakes.add(c, tmp.x, tmp.y, tmp.z);
     }
+  }
+
+  /**
+   * Where the combiner's piece B is, in model-local units (x along the lane,
+   * z across lanes, origin = footprint centre). Phases: 'belt' (riding the
+   * second lane), 'arrive' (last part of the belt, gripper lowering), 'carry'.
+   */
+  _combinerB(e) {
+    if (!e.inSlots[1]) return null;
+    const d = e.inProg[1] * e.inLen[1];          // distance along the path (0..1.5)
+    if (d < 0.5) {
+      const k = Math.max(0, (d - 0.3) / 0.2);
+      return { phase: d > 0.3 ? 'arrive' : 'belt', k, x: -0.5 + d, z: 0.5, y: CAKE_Y };
+    }
+    const t = Math.min(1, (d - 0.5) / 1.0);
+    const lift = Math.sin(Math.PI * Math.min(1, t * 1.15)) * 0.42;
+    return { phase: 'carry', x: 0, z: 0.5 - t, y: CAKE_Y + Math.max(0, lift) };
   }
 
   _animateMachine(v, e, dt) {
@@ -605,9 +628,25 @@ export class FactoryRenderer {
           P.table.rotation.y = -ease * Math.PI / 2;
         } else P.table.rotation.y = 0;
         break;
-      case 'combiner':
-        P.press.position.y = P.pressY - (e.working ? Math.sin(e.progress * Math.PI) * 0.22 : 0);
+      case 'combiner': {
+        // Gantry robot: follow piece B while it is carried, otherwise wait above the pick-up.
+        const r = this._combinerB(e);
+        let tz = 0.5, ty = SURF + 0.55, closed = false;   // home: raised above the pick-up point
+        if (r && r.phase === 'carry') { tz = r.z; ty = r.y + 0.24; closed = true; }
+        else if (r && r.phase === 'arrive') { tz = 0.5; ty = SURF + 0.55 - r.k * (SURF + 0.55 - (SURF + 0.27)); }
+        const P2 = v.parts;
+        const k = Math.min(1, dt * 10);
+        P2.carriage.position.z += (tz - P2.carriage.position.z) * (closed ? 1 : k);
+        const gy = ty - P2.beamY;                          // gripper y relative to the carriage
+        P2.gripper.position.y += (gy - P2.gripper.position.y) * (closed ? 1 : k);
+        const armLen = Math.max(0.05, -P2.gripper.position.y);
+        P2.arm.scale.y = armLen; P2.arm.position.y = -armLen / 2;
+        for (const f of P2.fingers) {
+          const open = closed ? 0.33 : 0.42; // fingers grip the piece's sides
+          f.position.x += (f.userData.side * open - f.position.x) * Math.min(1, dt * 12);
+        }
         break;
+      }
       case 'trash':
         if (v.hop > 0) v.hop = Math.max(0, v.hop - dt);
         P.lid.position.y = 0.59 + Math.sin((v.hop / 0.35) * Math.PI) * 0.18;

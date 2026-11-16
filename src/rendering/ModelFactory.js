@@ -387,21 +387,40 @@ export function buildRotator() {
 }
 
 /**
- * Combiner (1×2): piece A rides in on the north belt, piece B comes in on the
- * south belt and is carried up to meet it under the press.
+ * Combiner (1×2) as a gantry robot. Piece A rides the main lane (z = -0.5) to
+ * the stage; piece B rides the second lane (z = +0.5) to the pick-up point.
+ * The robot's carriage runs along the gantry beam (local Z), its gripper
+ * lifts B and sets it down on A.
  */
 export function buildCombiner() {
   const g = new THREE.Group();
   const body = PALETTE.pink;
+  const steel = mat('#dfe3e9', { metalness: 0.85, roughness: 0.22 });
   g.add(wall(0.94, 0.5, body, 0, -0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, -0.98));
   g.add(wall(0.94, 0.5, body, 0, 0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, 0.98));
   g.add(wall(0.9, 0.42, body, 0.48, 0.5, false));            // closed front of the B cell
-  g.add(mesh(roundedBox(0.12, 0.95, 0.12, 0.04), mat(PALETTE.cream), 0, 0.47, -0.98));
-  g.add(mesh(roundedBox(0.12, 0.1, 0.56, 0.04), mat(PALETTE.cream), 0, 0.92, -0.72));
-  const pressRod = mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), mat(PALETTE.metal), 0, 0.76, -0.5);
-  const press = mesh(roundedBox(0.5, 0.05, 0.5, 0.03), mat(PALETTE.vanilla, { metalness: 0.3, roughness: 0.3 }), 0, 0.68, -0.5);
-  g.add(pressRod, press);
-  return { group: g, parts: { press, pressY: 0.68 } };
+  // Gantry: two posts and a beam across both lanes.
+  const BEAM_Y = 1.25;
+  for (const z of [-0.98, 0.98]) g.add(mesh(roundedBox(0.12, BEAM_Y, 0.12, 0.04), mat(PALETTE.cream), 0, BEAM_Y / 2, z));
+  g.add(mesh(roundedBox(0.14, 0.12, 2.1, 0.04), mat(PALETTE.pinkDark), 0, BEAM_Y, 0));
+  g.add(mesh(roundedBox(0.03, 0.03, 1.9, 0.01), steel, -0.085, BEAM_Y, 0)); // rail
+  // Carriage (moves along Z) with a telescopic arm and a two-finger gripper.
+  const carriage = new THREE.Group();
+  carriage.position.set(0, BEAM_Y, 0.5);
+  carriage.add(mesh(roundedBox(0.22, 0.16, 0.2, 0.04), mat('#7fdcb0'), 0, 0, 0));
+  const arm = mesh(roundedBox(0.05, 1, 0.05, 0.015), steel, 0, 0, 0);       // scaled in Y
+  carriage.add(arm);
+  const gripper = new THREE.Group();                                         // y animated (relative to carriage)
+  gripper.add(mesh(roundedBox(0.16, 0.06, 0.1, 0.02), mat(PALETTE.pinkDark), 0, 0, 0));
+  const fingers = [-1, 1].map((side) => {
+    const f = mesh(roundedBox(0.04, 0.2, 0.06, 0.012), steel, 0, -0.12, 0);
+    f.userData.side = side;
+    gripper.add(f);
+    return f;
+  });
+  carriage.add(gripper);
+  g.add(carriage);
+  return { group: g, parts: { carriage, arm, gripper, fingers, beamY: BEAM_Y } };
 }
 
 /** Trash bin (1×1). */
