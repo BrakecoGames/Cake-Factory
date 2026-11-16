@@ -20,7 +20,8 @@ const whole = (f, fr = null) => key(P(f, fr), P(f, fr), P(f, fr), P(f, fr));
 export const STARTING_UNLOCKS = {
   machines: ['belt', 'oven', 'delivery'],
   flavors: ['vanilla'],
-  frostings: [],
+  // Every frosting colour is available from the start (only the machine unlocks).
+  frostings: ['pink', 'white', 'brown', 'yellow', 'blue', 'green', 'purple'],
 };
 
 export const ORDER_DEFS = [
@@ -28,7 +29,7 @@ export const ORDER_DEFS = [
     id: 'o1_vanilla_delight', name: 'Vanilla Delight', customer: 'Grandma Rosa',
     cake: whole('vanilla'), quantity: 5, perCake: 10, reward: 100, difficulty: 1,
     requires: ['oven', 'delivery'],
-    unlocks: { machines: ['froster'], frostings: ['pink'] },
+    unlocks: { machines: ['froster'] },
     purpose: 'Teaches oven → belt → delivery.',
   },
   {
@@ -52,7 +53,7 @@ export const ORDER_DEFS = [
     cake: key(P('vanilla'), P('chocolate'), P('chocolate'), P('vanilla')), quantity: 10, perCake: 25, reward: 500, difficulty: 2,
     requires: ['oven', 'cutter', 'combiner', 'trash', 'delivery'],
     hint: 'Cut a vanilla and a chocolate cake, keep the vanilla LEFT half and the chocolate RIGHT half, then combine.',
-    unlocks: { machines: ['rotator'], flavors: ['strawberry'], frostings: ['white'] },
+    unlocks: { machines: ['rotator'], flavors: ['strawberry'] },
     purpose: 'Introduces combining two production lines.',
   },
   {
@@ -60,7 +61,7 @@ export const ORDER_DEFS = [
     cake: key(P('chocolate'), P('chocolate'), P('vanilla'), P('vanilla')), quantity: 10, perCake: 30, reward: 700, difficulty: 3,
     requires: ['oven', 'cutter', 'rotator', 'combiner', 'trash', 'delivery'],
     hint: 'Rotating a left half clockwise turns it into a TOP half; a right half becomes a BOTTOM half.',
-    unlocks: { flavors: ['lemon'], frostings: ['yellow'] },
+    unlocks: { flavors: ['lemon'] },
     purpose: 'Introduces rotation.',
   },
   {
@@ -69,7 +70,7 @@ export const ORDER_DEFS = [
     requires: ['oven', 'froster', 'delivery'],
     bonus: { seconds: 30, reward: 250, text: 'Deliver all 15 within 30 s' },
     hint: 'A breather: scale up a simple line to beat the timer.',
-    unlocks: { flavors: ['blueberry'], frostings: ['blue', 'brown'] },
+    unlocks: { flavors: ['blueberry'] },
     purpose: 'Throughput breather.',
   },
   {
@@ -77,7 +78,7 @@ export const ORDER_DEFS = [
     cake: key(P('vanilla'), P('chocolate'), P('strawberry'), P('lemon')), quantity: 12, perCake: 50, reward: 1200, difficulty: 4,
     requires: ['oven', 'cutter', 'rotator', 'combiner', 'trash', 'delivery'],
     hint: 'Cut a half again after rotating it to get single quarters. Combine quarters into halves, halves into a cake.',
-    unlocks: { frostings: ['green', 'purple'] },
+    unlocks: {},
     purpose: 'First big production chain.',
   },
   {

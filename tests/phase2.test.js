@@ -242,7 +242,7 @@ test('completing an order reports what it unlocked', () => {
   let ev = null;
   g.bus.on('orderCompleted', (e) => { ev = e; });
   for (let i = 0; i < 5; i++) g.orders.deliver(makeWholeCake(), i);
-  assert.deepEqual(ev.unlocked.map((u) => u.value).sort(), ['froster', 'pink']);
+  assert.deepEqual(ev.unlocked.map((u) => u.value).sort(), ['froster']);
 });
 
 test('v2 (Phase 1) saves migrate to sensible Phase 2 orders', () => {
