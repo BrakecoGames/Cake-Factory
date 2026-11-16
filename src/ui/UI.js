@@ -149,7 +149,17 @@ export class UI {
     $('inspCake').addEventListener('click', () => { if (this._inspCakeObj) this.openCakeInspector(this._inspCakeObj, 'Cake inspector', false); });
     $('inspConfig').addEventListener('click', (ev) => {
       const btn = ev.target.closest('[data-val],[data-q]');
-      if (!btn || !this.selected || btn.disabled) return;
+      if (!btn || !this.selected) return;
+      if (btn.classList.contains('locked') && btn.dataset.kind) {
+        // Explain which order unlocks this flavor / colour instead of doing nothing.
+        const kind = btn.dataset.kind === 'flavor' ? 'flavors' : 'frostings';
+        const table = kind === 'flavors' ? FLAVORS : FROSTINGS;
+        const src = this.game.unlockSource(kind, btn.dataset.val);
+        this.toast(`${table[btn.dataset.val].name} unlocks after the “${src}” order`, 'bad');
+        this.audio.play('invalid');
+        return;
+      }
+      if (btn.disabled) return;
       let r;
       if (btn.dataset.q !== undefined) {
         const mask = (this.selected.config.mask || [true, true, true, true]).slice();
@@ -370,7 +380,10 @@ export class UI {
     const cfg = $('inspConfig');
     const opts = e.kind === 'machine' ? (CONFIG_OPTIONS[e.type] || []) : [];
     if (opts.length) {
-      cfg.innerHTML = opts.map((opt) => this._configHtml(e, opt)).join('');
+      // Only touch the DOM when something changed: re-creating the buttons every
+      // refresh made clicks get lost (mouse down on the old button, up on the new one).
+      const html = opts.map((opt) => this._configHtml(e, opt)).join('');
+      if (cfg.dataset.html !== html) { cfg.innerHTML = html; cfg.dataset.html = html; }
       cfg.classList.remove('hidden');
     } else cfg.classList.add('hidden');
     this._renderUpgradeCard(e);
@@ -560,8 +573,9 @@ export class UI {
       return `<div class="cfg-label">${opt.kind === 'flavor' ? 'Flavor' : 'Frosting color'}</div><div class="swatches">${
         Object.entries(table).map(([k, v]) => {
           const ok = unlocked.has(k);
-          return `<button class="swatch ${k === cur ? 'on' : ''} ${ok ? '' : 'locked'}" ${ok ? '' : 'disabled'} data-key="${opt.key}" data-val="${k}" title="${v.name}${ok ? '' : ' – locked'}" style="--c:${v.color}"></button>`;
-        }).join('')}</div><div class="cfg-name">${table[cur]?.name ?? ''}</div>`;
+          return `<button class="swatch ${k === cur ? 'on' : ''} ${ok ? '' : 'locked'}" data-kind="${opt.kind}" data-key="${opt.key}" data-val="${k}" title="${v.name}${ok ? '' : ' – locked'}" style="--c:${v.color}"></button>`;
+        }).join('')}</div><div class="cfg-name">${table[cur]?.name ?? ''}${
+          [...unlocked].length < Object.keys(table).length ? ' <small class="cfg-more">· more unlock with orders</small>' : ''}</div>`;
     }
     if (opt.kind === 'mode') {
       // Array (not object) so the order stays cw, ccw, 180.
