@@ -46,6 +46,10 @@ export function drawCake(canvas, cake, opts = {}) {
     g.beginPath(); g.arc(cx, cy, R * (1.02 + (i + 1) * 0.03), 0, Math.PI * 2); g.stroke();
   }
 
+  // Optional rotation so the picture matches the current 3D camera view.
+  const rot = opts.rotation || 0;
+  g.save();
+  g.translate(cx, cy); g.rotate(rot); g.translate(-cx, -cy);
   const gap = R * 0.05;
   for (let q = 0; q < 4; q++) {
     const p = layer.quadrants[q];
@@ -71,6 +75,20 @@ export function drawCake(canvas, cake, opts = {}) {
       g.fillStyle = DECOR[p.decoration] || '#e8344e';
       g.beginPath(); g.arc(cx + ox + Math.cos(MID[q]) * R * 0.5, cy + oy + Math.sin(MID[q]) * R * 0.5, R * 0.12, 0, Math.PI * 2); g.fill();
     }
+  }
+
+  g.restore();
+
+  // Compass: a small arrow pointing to the factory's north (top of the order picture).
+  if (opts.compass) {
+    const ax = cssW - 13, ay = 13, a = -Math.PI / 2 + rot;
+    g.save();
+    g.translate(ax, ay); g.rotate(a + Math.PI / 2);
+    g.fillStyle = 'rgba(233,102,143,0.9)';
+    g.beginPath(); g.moveTo(0, -9); g.lineTo(5, 3); g.lineTo(-5, 3); g.closePath(); g.fill();
+    g.restore();
+    g.fillStyle = '#e9668f'; g.font = 'bold 9px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('N', ax, ay + 11);
   }
 
   // Layer pips under the cake.

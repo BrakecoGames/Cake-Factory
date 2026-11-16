@@ -76,6 +76,9 @@ export class UI {
     this._subscribe();
   }
 
+  /** Rotation that makes 2D cake pictures match the current 3D camera view. */
+  get viewRot() { return Math.PI / 2 - (this.cam?.azimuth ?? Math.PI / 4); }
+
   attachInput(input) {
     this.input = input;
     input.onToolChange = (t) => this._syncTools(t);
@@ -195,12 +198,17 @@ export class UI {
     bus.on('delivered', (ev) => {
       const wp = this._stationWorld(ev);
       if (ev.accepted) {
+        if (this._lastReject) { this._lastReject = null; this._showLastReject(); }
         this.popup(`+$${ev.reward}`, wp, ev.reward > 50 ? 'big' : '');
         this.audio.play('deliver');
       } else {
         this.popup('✗ Wrong cake', wp, 'bad');
         this.audio.play('reject');
-        if (!this._rejectTipShown) { this._rejectTipShown = true; this.toast(`Delivery rejected: ${ev.reason}`, 'bad'); }
+        // Explain every rejection (rate-limited) and show the wrong cake in the order card.
+        const now = performance.now();
+        if (now - (this._lastRejectToast ?? -1e9) > 3500) { this._lastRejectToast = now; this.toast(`Wrong cake: ${ev.reason}`, 'bad'); }
+        this._lastReject = { cake: ev.cake, reason: ev.reason, orderId: this.game.orders.current.id };
+        this._showLastReject();
       }
     });
     bus.on('itemDestroyed', () => this.toast('A cake was discarded with the removed part', ''));
@@ -235,6 +243,14 @@ export class UI {
     } else this._bumped = false;
     $('money').textContent = fmt(this.moneyShown);
 
+    // Keep 2D cake pictures turned the same way as the 3D view.
+    const vr = this.viewRot;
+    if (this._orderCake && Math.abs(vr - (this._lastViewRot ?? 99)) > 0.01) {
+      this._lastViewRot = vr;
+      drawCake($('orderCake'), this._orderCake, { rotation: vr, compass: true });
+      if (this._lastReject) drawCake($('orderLastCake'), this._lastReject.cake, { rotation: vr });
+      if (this.selected && this._inspCakeObj) drawCake($('inspCake'), this._inspCakeObj, { rotation: vr, compass: true });
+    }
     this._hudT -= dt;
     if (this._hudT <= 0) {
       this._hudT = 0.5;
@@ -296,8 +312,18 @@ export class UI {
     $('orderPer').textContent = `$${o.perCake}`;
     $('orderReward').textContent = `$${fmt(o.reward)}`;
     $('orderHint').textContent = o.hint ? `💡 ${o.hint}` : '';
-    requestAnimationFrame(() => drawCake($('orderCake'), this._orderCake));
+    this._showLastReject();
+    requestAnimationFrame(() => drawCake($('orderCake'), this._orderCake, { rotation: this.viewRot, compass: true }));
     this._updateBonus(this.game.sim.time);
+  }
+
+  _showLastReject() {
+    const box = $('orderLast');
+    const r = this._lastReject;
+    if (!r || r.orderId !== this.game.orders.current.id) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    $('orderLastText').textContent = r.reason;
+    drawCake($('orderLastCake'), r.cake, { rotation: this.viewRot });
   }
 
   _updateBonus(now) {
@@ -358,7 +384,7 @@ export class UI {
       } else if (e.outSlots) {
         const what = {
           froster: `Frosts the top layer ${FROSTINGS[e.config.color]?.name.toLowerCase()}`,
-          cutter: 'Left half → L exit, right half → R exit',
+          cutter: 'West half (left in the order picture) → L exit · east half → R exit',
           rotator: { cw: 'Rotates 90° clockwise', ccw: 'Rotates 90° counter-clockwise', '180': 'Rotates 180°' }[e.config.mode],
           combiner: 'Joins two pieces that fit together',
         }[e.type];
@@ -390,7 +416,7 @@ export class UI {
     $('inspBody').innerHTML = rows.map(([a, b]) => `<div class="row"><span>${a}</span><span>${b}</span></div>`).join('');
     cakeCanvas.classList.toggle('hidden', !cake);
     this._inspCakeObj = cake;
-    if (cake) drawCake(cakeCanvas, cake);
+    if (cake) drawCake(cakeCanvas, cake, { rotation: this.viewRot, compass: true });
     $('inspRemove').textContent = `Remove (+$${e.kind === 'machine' ? e.invested : e.def.cost})`;
   }
 
@@ -681,9 +707,9 @@ export class UI {
       <div class="cake-insp"><canvas id="ciCake" width="180" height="180"></canvas></div>
       <div class="ci-rot"><button class="btn small" id="ciRot">⟳ Preview rotation</button><span id="ciTurns" class="ci-turns">as ${isOrder ? 'ordered' : 'produced'}</span></div>
       <div id="ciRows">${rowsHtml(view)}</div>
-      <p class="ci-note">Top of the picture = the far side of the factory in the default view (top = −Z). Preview rotation does not change the real cake.</p>
+      <p class="ci-note">The picture is turned like your current camera view; the pink arrow points to the factory's north (top-left = north-west). Preview rotation does not change the real cake.</p>
       <div class="actions"><button class="btn primary" id="ciClose">Close</button></div>`);
-    const draw = () => { drawCake($('ciCake'), view); $('ciRows').innerHTML = rowsHtml(view); $('ciTurns').textContent = turns ? `preview: ${turns * 90}° clockwise` : `as ${isOrder ? 'ordered' : 'produced'}`; };
+    const draw = () => { drawCake($('ciCake'), view, { rotation: this.viewRot, compass: true }); $('ciRows').innerHTML = rowsHtml(view); $('ciTurns').textContent = turns ? `preview: ${turns * 90}° clockwise` : `as ${isOrder ? 'ordered' : 'produced'}`; };
     requestAnimationFrame(draw);
     $('ciRot').onclick = () => { turns = (turns + 1) % 4; view = turns ? rotateCW(view) : cake; draw(); };
     $('ciClose').onclick = () => this.closeModal();

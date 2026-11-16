@@ -297,3 +297,20 @@ test('while the stage is busy the next cake waits on the machine belt, short of 
   }
   assert.ok(checked);
 });
+
+test('rejected cakes get a specific reason (e.g. swapped halves)', async () => {
+  const { diagnoseMismatch } = await import('../src/gameplay/Diagnose.js');
+  const want = parseCakeKey('vanilla:_:_,chocolate:_:_,chocolate:_:_,vanilla:_:_');
+  const swapped = parseCakeKey('chocolate:_:_,vanilla:_:_,vanilla:_:_,chocolate:_:_');
+  assert.match(diagnoseMismatch(swapped, want), /swapped/);
+  const topBottom = parseCakeKey('vanilla:_:_,vanilla:_:_,chocolate:_:_,chocolate:_:_');
+  assert.match(diagnoseMismatch(topBottom, want), /quarter/);
+  const half = parseCakeKey('vanilla:_:_,-,-,vanilla:_:_');
+  assert.match(diagnoseMismatch(half, want), /missing/);
+  assert.match(diagnoseMismatch(parseCakeKey('vanilla:pink:_,chocolate:_:_,chocolate:_:_,vanilla:_:_'), want), /frosting/);
+  const g = new Game();
+  g.orders.index = orderIndexById('o3_half_and_half');
+  const r = g.sim.validateDelivery(swapped);
+  assert.equal(r.accepted, false);
+  assert.match(r.reason, /swapped/);
+});

@@ -250,7 +250,7 @@ export class ShopRenderer {
       g.font = '58px sans-serif'; g.fillText('♥', 128, 140);
     } else {
       const cakeC = document.createElement('canvas'); cakeC.width = 120; cakeC.height = 120;
-      drawCake(cakeC, parseCakeKey(order.cake));
+      drawCake(cakeC, parseCakeKey(order.cake), { rotation: Math.PI / 2 - (this.fr.camAzimuth ?? Math.PI / 4) });
       g.drawImage(cakeC, 14, 22, 132, 132);
       g.font = 'bold 50px "Fredoka", sans-serif'; g.fillStyle = '#4a2c3a';
       g.fillText(`×${order.quantity}`, 196, 72);
@@ -268,6 +268,7 @@ export class ShopRenderer {
     cust.bubble.material.needsUpdate = true;
     if (old) old.dispose();
     cust.shownDelivered = this.game.orders.delivered;
+    cust.shownAz = this.fr.camAzimuth;
   }
 
   _spawn(order, silent = false) {
@@ -377,7 +378,8 @@ export class ShopRenderer {
       } else if (c.state === 'waiting') {
         c.group.rotation.y = Math.PI;
         this._idle(c);
-        if (c.shownDelivered !== this.game.orders.delivered && c.order.id === this.game.orders.current.id) this._setBubble(c);
+        const turned = Math.abs((c.shownAz ?? 0) - (this.fr.camAzimuth ?? 0)) > 0.05;
+        if ((c.shownDelivered !== this.game.orders.delivered || turned) && c.order.id === this.game.orders.current.id) this._setBubble(c);
       } else if (c.state === 'collect') {
         c.group.rotation.y = Math.PI;
         this._idle(c);

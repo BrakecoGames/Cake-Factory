@@ -6,7 +6,8 @@
  * Time is simulation time (seconds), so pausing pauses bonus timers too.
  */
 import { getOrderDef, orderIndexById, RETIRED_ORDERS } from './OrderDefs.js';
-import { cakeKey } from '../cakes/CakeSerializer.js';
+import { cakeKey, parseCakeKey } from '../cakes/CakeSerializer.js';
+import { diagnoseMismatch } from './Diagnose.js';
 
 export class OrderManager {
   constructor() {
@@ -36,7 +37,7 @@ export class OrderManager {
   deliver(cake, now) {
     const order = this.current;
     if (cakeKey(cake) !== order.cake) {
-      return { accepted: false, reward: 0, reason: 'Not what the customer ordered' };
+      return { accepted: false, reward: 0, reason: diagnoseMismatch(cake, parseCakeKey(order.cake)) };
     }
     // The bonus clock starts with the first correct cake, so building time is free.
     if (this.delivered === 0) this.startedAt = now;
