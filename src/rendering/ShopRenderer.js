@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { textures, roundedBox, cylinder, mat, PALETTE } from './ModelFactory.js';
 import { parseCakeKey } from '../cakes/CakeSerializer.js';
 import { drawCake } from '../ui/CakePreview.js';
+import { buildStorefront } from './Storefront.js';
 
 const COUNTER_LEN = 9;        // cells along the factory's east edge
 
@@ -71,10 +72,12 @@ export class ShopRenderer {
   /** Counter centre (world). The factory side is west (-X), customers stand east (+X). */
   get counterPos() { return new THREE.Vector3(this.W / 2 + 1.3, 0, 0); }
   get standPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, 0.1); }
-  get spawnPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, this.H / 2 + 3.6); }
-  get exitPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, -this.H / 2 - 3.2); }
-  /** Display cabinet against the east wall (behind the customers). */
-  get vitrinePos() { return new THREE.Vector3(this.W / 2 + 3.95, 0, 0); }
+  /** Inside face of the east wall at the door opening. */
+  get wallX() { return this.W / 2 + 4.5 - 0.125; }
+  /** Customers appear outside the doors and walk in through them. */
+  get spawnPos() { return new THREE.Vector3(this.wallX + 1.3, 0, 0); }
+  get doorInside() { return new THREE.Vector3(this.wallX - 1.0, 0, 0); }
+  get exitPos() { return this.spawnPos; }
 
   /** Called on reset / expansion: rebuild the counter and put the current customer in place. */
   rebuild() {
@@ -85,15 +88,19 @@ export class ShopRenderer {
     this.counter = this._buildCounter();
     this.counter.position.copy(this.counterPos);
     this.root.add(this.counter);
-    if (this.vitrine) this.root.remove(this.vitrine);
-    this.vitrine = this._buildVitrine();
-    this.vitrine.position.copy(this.vitrinePos);
-    this.root.add(this.vitrine);
+    if (this.front) this.root.remove(this.front);
+    const sf = buildStorefront(this.H + 9);
+    this.front = sf.group;
+    this.doors = sf.doors;
+    this.doorAngle = 0;
+    this.front.position.set(this.wallX, 0, 0);
+    this.root.add(this.front);
     this.stackCount = Math.min(this.game.orders.delivered, MAX_STACK);
     this._layoutStack();
     // The current order's customer is already waiting at the counter.
     const c = this._spawn(this.game.orders.current, true);
     c.state = 'waiting';
+    c.inside = true;
     c.group.position.copy(this.standPos);
     c.group.rotation.y = Math.PI; // face the counter (west, -X)
     c.bubble.visible = true;
@@ -156,64 +163,6 @@ export class ShopRenderer {
     this.stackRoot = new THREE.Group();
     this.stackRoot.position.set(0.2, 0.93, 0.15);
     g.add(this.stackRoot);
-    return g;
-  }
-
-  /**
-   * Long glass display cabinet with cakes, standing against the east wall.
-   * Faces the factory (-X). Hidden whenever that wall is hidden (camera side).
-   */
-  _buildVitrine() {
-    const g = new THREE.Group();
-    const L = 10, D = 0.62, H = 1.55;
-    const frame = mat(PALETTE.pink), cream = mat(PALETTE.cream);
-    const glassMat = new THREE.MeshStandardMaterial({ color: '#e4f6ff', transparent: true, opacity: 0.28, roughness: 0.03, metalness: 0.1, depthWrite: false });
-    // Base cabinet, top, back panel.
-    g.add(place(new THREE.Mesh(roundedBox(D, 0.55, L, 0.06), frame), 0, 0.275, 0));
-    g.add(place(new THREE.Mesh(roundedBox(D + 0.06, 0.1, L + 0.06, 0.04), cream), 0, H, 0));
-    g.add(place(new THREE.Mesh(roundedBox(0.06, H - 0.55, L, 0.02), mat('#fff3f6')), D / 2 - 0.03, 0.55 + (H - 0.55) / 2, 0));
-    // Glass front + glass end panels.
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(L, H - 0.6), glassMat);
-    front.rotation.y = -Math.PI / 2; front.position.set(-D / 2, 0.55 + (H - 0.6) / 2, 0); front.renderOrder = 3;
-    g.add(front);
-    for (const z of [-L / 2, L / 2]) {
-      const side = new THREE.Mesh(new THREE.PlaneGeometry(D, H - 0.6), glassMat);
-      side.position.set(0, 0.55 + (H - 0.6) / 2, z); side.renderOrder = 3;
-      g.add(side);
-    }
-    // Frame posts.
-    for (let i = 0; i <= 5; i++) {
-      const z = -L / 2 + (i * L) / 5;
-      g.add(place(new THREE.Mesh(roundedBox(0.06, H - 0.55, 0.06, 0.02), frame), -D / 2, 0.55 + (H - 0.55) / 2, z));
-    }
-    // Two shelves of cakes (sponge + frosting + a cherry on some).
-    const sponges = ['#f6dfa4', '#7a4a2e', '#f49ab0', '#f7e45e', '#7d8ee8'];
-    const tops = ['#ff8fb8', '#fffaf2', '#8fc8ff', '#ffe27a', '#c3a2ff', '#8de0b4', '#8a5634'];
-    const shelfY = [0.56, 1.0];
-    for (const [si, y] of shelfY.entries()) {
-      if (si > 0) g.add(place(new THREE.Mesh(roundedBox(D - 0.12, 0.03, L - 0.1, 0.01), mat('#eaf6fb', { transparent: true, opacity: 0.6 })), 0, y - 0.02, 0));
-      for (let i = 0; i < 12; i++) {
-        const z = -L / 2 + 0.45 + i * ((L - 0.9) / 11);
-        const k = i * 3 + si * 7;
-        const r = 0.15 + (k % 3) * 0.02;
-        const h = 0.12 + (k % 2) * 0.06;
-        const plate = new THREE.Mesh(cylinder(r + 0.04, r + 0.03, 0.02, 18), mat('#ffffff'));
-        plate.position.set(-0.05, y + 0.01, z);
-        const sp = new THREE.Mesh(cylinder(r, r, h, 18), mat(sponges[k % sponges.length]));
-        sp.position.set(-0.05, y + 0.02 + h / 2, z); sp.castShadow = true;
-        const fr = new THREE.Mesh(cylinder(r + 0.005, r + 0.005, 0.035, 18), mat(tops[k % tops.length]));
-        fr.position.set(-0.05, y + 0.02 + h + 0.017, z);
-        g.add(plate, sp, fr);
-        if (k % 2 === 0) {
-          const ch = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), mat('#e8344e'));
-          ch.position.set(-0.05, y + 0.02 + h + 0.06, z); g.add(ch);
-        }
-      }
-    }
-    // Warm strip light under the top.
-    const light = new THREE.Mesh(roundedBox(0.04, 0.03, L - 0.3, 0.01), new THREE.MeshBasicMaterial({ color: '#fff6d8' }));
-    light.position.set(-D / 2 + 0.08, H - 0.07, 0);
-    g.add(light);
     return g;
   }
 
@@ -388,7 +337,16 @@ export class ShopRenderer {
   update(dt) {
     this.time += dt;
     // The cabinet stands against the east wall: show it only when that wall is visible.
-    if (this.vitrine) this.vitrine.visible = Math.cos(this.fr.camAzimuth ?? Math.PI / 4) < -0.1;
+    // The shop front is part of the east wall: show it only when that wall is visible.
+    if (this.front) {
+      this.front.visible = Math.cos(this.fr.camAzimuth ?? Math.PI / 4) < -0.1;
+      // French doors swing open (inward) while someone is near them.
+      const door = new THREE.Vector3(this.wallX, 0, 0);
+      const near = this.customers.some((c) => c.group.position.distanceTo(door) < 1.6);
+      const target = near ? 1.35 : 0;
+      this.doorAngle += (target - this.doorAngle) * Math.min(1, dt * 5);
+      for (const d of this.doors) d.rotation.y = d.userData.hingeSide * this.doorAngle;
+    }
     // Flying boxes: arc from the delivery station to the counter.
     for (let i = this.flying.length - 1; i >= 0; i--) {
       const f = this.flying[i];
@@ -408,6 +366,7 @@ export class ShopRenderer {
     for (let i = this.customers.length - 1; i >= 0; i--) {
       const c = this.customers[i];
       if (c.state === 'entering') {
+        if (!c.inside) { if (this._walk(c, this.doorInside, dt)) c.inside = true; continue; }
         if (this._walk(c, this.standPos, dt)) {
           c.state = 'waiting';
           c.group.rotation.y = Math.PI; // face the counter (-X)
@@ -444,6 +403,7 @@ export class ShopRenderer {
           if (this._nextOrder) { this._spawn(this._nextOrder); this._nextOrder = null; }
         }
       } else if (c.state === 'leaving') {
+        if (c.inside) { if (this._walk(c, this.doorInside, dt)) c.inside = false; continue; }
         if (this._walk(c, this.exitPos, dt)) {
           this.root.remove(c.group);
           c.bubble.material.map?.dispose();

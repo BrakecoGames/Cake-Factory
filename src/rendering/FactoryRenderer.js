@@ -21,6 +21,7 @@ import {
 import { FROSTINGS, FLAVORS } from '../cakes/CakeModel.js';
 import { ConveyorRenderer, SURF } from './ConveyorRenderer.js';
 import { ShopRenderer } from './ShopRenderer.js';
+import { DOOR_GAP, DOOR_H } from './Storefront.js';
 import { pointAt } from '../machines/Paths.js';
 import { frost } from '../cakes/CakeOperations.js';
 
@@ -131,12 +132,21 @@ export class FactoryRenderer {
     const shelfMat = mat(PALETTE.cream);
     this.walls = [];
     const D = 4.5; // distance from grid edge
-    const mk = (len, nx, nz, shelves = true) => {
+    const mk = (len, nx, nz, shelves = true, gap = 0) => {
       const g = new THREE.Group();
-      const tex = wallTex.clone(); tex.needsUpdate = true; tex.repeat.set(len / 2, 1);
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(len, 2.2, 0.25), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
-      wall.position.y = 1.1; wall.receiveShadow = true;
-      g.add(wall);
+      const piece = (l, x, h = 2.2, y = 1.1) => {
+        const tex = wallTex.clone(); tex.needsUpdate = true; tex.repeat.set(l / 2, h / 2.2);
+        const w = new THREE.Mesh(new THREE.BoxGeometry(l, h, 0.25), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
+        w.position.set(x, y, 0); w.receiveShadow = true;
+        g.add(w);
+      };
+      if (gap > 0) {
+        // Door opening in the middle (Cake Shop entrance) with a lintel above it.
+        const side = (len - gap) / 2;
+        piece(side, -(gap / 2 + side / 2));
+        piece(side, gap / 2 + side / 2);
+        piece(gap, 0, 2.2 - DOOR_H, DOOR_H + (2.2 - DOOR_H) / 2);
+      } else piece(len, 0);
       // Shelves with jars.
       for (let i = -len / 2 + 2; shelves && i < len / 2 - 1; i += 4) {
         const shelf = new THREE.Mesh(roundedBox(2, 0.08, 0.4, 0.03), shelfMat);
@@ -154,7 +164,7 @@ export class FactoryRenderer {
       this.walls.push(g);
     };
     // The east wall gets no jar shelves: the Cake Shop display cabinet stands there.
-    mk(W + 9, 0, -1); mk(W + 9, 0, 1); mk(H + 9, -1, 0); mk(H + 9, 1, 0, false);
+    mk(W + 9, 0, -1); mk(W + 9, 0, 1); mk(H + 9, -1, 0); mk(H + 9, 1, 0, false, DOOR_GAP);
     wallMat.dispose();
 
     // Bakery props around the factory floor (outside the buildable grid).
