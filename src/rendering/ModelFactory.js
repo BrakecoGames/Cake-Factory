@@ -325,30 +325,49 @@ export function buildFroster() {
 export function buildCutter() {
   const g = new THREE.Group();
   const body = PALETTE.sky;
+  const steel = mat('#dfe3e9', { metalness: 0.85, roughness: 0.22 });
   g.add(wall(0.94, 0.5, body, 0, -0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, -0.98));
   g.add(wall(0.94, 0.5, body, 0, 0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, 0.98));
-  g.add(wall(0.9, 0.42, body, -0.48, 0.5, false));           // closed back of the R cell
-  // Cantilever arm from the north wall over the stage.
-  g.add(mesh(roundedBox(0.12, 0.85, 0.12, 0.04), mat(PALETTE.cream), 0, 0.42, -0.98));
-  g.add(mesh(roundedBox(0.12, 0.1, 0.56, 0.04), mat(PALETTE.cream), 0, 0.82, -0.72));
-  const blade = new THREE.Group();
-  blade.position.set(0, 0.6, -0.5);
+  // Gantry over the stage: two posts and a crossbeam the blade carriage runs along.
+  g.add(mesh(roundedBox(0.1, 0.95, 0.1, 0.04), mat(PALETTE.cream), -0.32, 0.475, -0.98));
+  g.add(mesh(roundedBox(0.42, 0.1, 0.1, 0.04), mat(PALETTE.cream), -0.14, 0.93, -0.98));
+  g.add(mesh(roundedBox(0.1, 0.12, 1.12, 0.04), mat(PALETTE.cream), 0, 0.93, -0.44));
+  // Blade carriage (kept world-aligned by the renderer; it slides along the cut line).
+  const bladeHolder = new THREE.Group();
+  bladeHolder.position.set(0, 0, -0.5);
+  const blade = new THREE.Group();        // moves: up/down + back and forth
+  const spinner = new THREE.Group();      // spins
   const disc = mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.015, 28), mat('#eef2f7', { metalness: 0.8, roughness: 0.18 }), 0, 0, 0);
   disc.rotation.z = Math.PI / 2; // disc in the plane that splits west/east halves
   const hub = mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12), mat(PALETTE.pinkDark), 0, 0, 0);
   hub.rotation.z = Math.PI / 2;
-  blade.add(disc, hub);
-  const bladeHolder = new THREE.Group(); // counter-rotated to stay world-aligned
-  bladeHolder.position.set(0, 0, -0.5);
-  blade.position.set(0, 0.6, 0);
+  spinner.add(disc, hub);
+  const rod = mesh(roundedBox(0.04, 0.5, 0.04, 0.015), steel, 0, 0.26, 0);   // hangs from the carriage
+  const carriage = mesh(roundedBox(0.16, 0.08, 0.16, 0.03), mat(PALETTE.pinkDark), 0, 0.52, 0);
+  blade.add(spinner, rod, carriage);
   bladeHolder.add(blade);
   g.add(bladeHolder);
-  g.add(mesh(roundedBox(0.06, 0.24, 0.06, 0.02), mat(PALETTE.metal), 0, 0.74, -0.5));
+  // Pneumatic pusher on the L-side wall: pushes the right half onto the R belt.
+  const cyl = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.34, 16), mat('#7fdcb0', { roughness: 0.4 }), 0, SURF + 0.09, -1.12);
+  cyl.rotation.x = Math.PI / 2;
+  const cylCap = mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.04, 16), steel, 0, SURF + 0.09, -0.95);
+  cylCap.rotation.x = Math.PI / 2;
+  g.add(cyl, cylCap);
+  const pusher = new THREE.Group();       // plate + rod; z is animated
+  const plate = mesh(roundedBox(0.34, 0.14, 0.035, 0.015), steel, 0, 0, 0);
+  const pRod = mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 10), steel, 0, 0, 0);
+  pRod.rotation.x = Math.PI / 2;
+  pusher.add(plate);
+  pusher.position.set(0, SURF + 0.09, -0.9);
+  g.add(pusher, pRod);
   // L / R exit flags (left of travel = the north cell at rotation 0).
   for (const [z, text, color] of [[-0.5, 'L', '#3fb27f'], [0.5, 'R', '#e9668f']]) {
     const f = flag(text, color); f.position.set(0.46, 0.66, z + (z < 0 ? -0.36 : 0.36)); g.add(f);
   }
-  return { group: g, parts: { blade, bladeHolder, bladeY: 0.6 } };
+  return {
+    group: g,
+    parts: { blade, spinner, bladeHolder, pusher, pRod, rodBaseZ: -0.95, pusherHome: -0.9, pusherX: 0, rodX: 0 },
+  };
 }
 
 /** Rotator (1×1): low guards and a turntable lying on the belt under the stage. */

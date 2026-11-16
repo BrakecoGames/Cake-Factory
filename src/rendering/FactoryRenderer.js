@@ -552,13 +552,42 @@ export class FactoryRenderer {
         P.arm.position.y = e.working ? -Math.sin(e.progress * Math.PI) * 0.012 : 0.03;
         break;
       }
-      case 'cutter':
-        // Keep the blade on the world north–south line (cakes keep world orientation).
+      case 'cutter': {
+        // Blade carriage stays on the world north–south cut line (cakes keep world orientation).
         P.bladeHolder.rotation.y = -dirAngle(e.rot);
-        v.spin += dt * (working && e.working ? 18 : 0.6);
-        P.blade.rotation.x = v.spin;
-        P.blade.position.y = P.bladeY - (e.working ? Math.sin(e.progress * Math.PI) * 0.16 : 0);
+        // Stroke: parked above the cake → drop beside it → slide right through → back → rise.
+        const CUT_Y = SURF + 0.12, UP_Y = SURF + 0.42, SIDE = 0.58, FAR = -0.4;
+        let y = UP_Y, z = SIDE;
+        if (e.working) {
+          const k = e.progress;
+          const ease = (t) => t * t * (3 - 2 * t);
+          if (k < 0.15) y = UP_Y + (CUT_Y - UP_Y) * ease(k / 0.15);
+          else if (k < 0.85) {
+            y = CUT_Y;
+            const t = (k - 0.15) / 0.7;                 // there and back
+            z = SIDE + (FAR - SIDE) * Math.sin(t * Math.PI);
+          } else y = CUT_Y + (UP_Y - CUT_Y) * ease((k - 0.85) / 0.15);
+        }
+        P.blade.position.set(0, y, z);
+        v.spin += dt * (e.working ? 22 : 0);
+        P.spinner.rotation.x = v.spin;
+        // Pusher follows the right half while it is pushed across, then retracts.
+        let target = P.pusherHome;
+        const c = e.outSlots[1];
+        if (c) {
+          const pushLen = 1.0;                           // first leg of the R path
+          const pushT = Math.min(1, (e.outProg[1] * e.outLen[1]) / pushLen);
+          if (pushT < 1) target = Math.max(P.pusherHome, -0.5 + pushT * 1.0 - 0.39);
+        }
+        const cur = P.pusher.position.z;
+        P.pusher.position.z = target > cur ? target : cur + (target - cur) * Math.min(1, dt * 8);
+        // Rod between the cylinder and the plate.
+        const len = Math.max(0.02, P.pusher.position.z - P.rodBaseZ);
+        P.pRod.scale.set(1, len, 1);
+        P.pRod.position.set(P.rodX, SURF + 0.09, P.rodBaseZ + len / 2);
+        P.pusher.position.x = P.pusherX;
         break;
+      }
       case 'rotator':
         if (e.working) {
           const k = e.progress; const ease = k * k * (3 - 2 * k);

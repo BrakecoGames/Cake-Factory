@@ -67,6 +67,9 @@ export const MACHINE_DEFS = Object.freeze({
     processTime: 1.2, stage: { x: 0.5, y: 0.5 },
     // Left half rides straight on; the right half is pushed down to the R exit.
     paths: { in: [[[0, 0.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]], [[0.5, 0.5], [0.5, 1.5], [1, 1.5]]] },
+    // Belts actually drawn: the main lane and a full-length R lane next to it.
+    // The right half is PUSHED sideways (pneumatic pusher) from the stage onto the R lane.
+    beltRuns: [[[0, 0.5], [1, 0.5]], [[0, 1.5], [1, 1.5]]],
     hotkey: '4',
   },
   rotator: {

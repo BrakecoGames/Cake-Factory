@@ -297,6 +297,18 @@ export class ConveyorRenderer {
       // Machines with a turntable (froster, rotator) have no belt of their own:
       // the line ends over a roller before them and starts again after them.
       if (!paths || e.def.ownBelt === false) continue;
+      if (e.def.beltRuns) {
+        // Explicit belt runs (e.g. cutter: main lane + parallel R lane), each on rollers.
+        for (const run of e.def.beltRuns) {
+          const [[ax, ay], [bx, by]] = run;
+          const [wax, way] = rotatePoint(ax, ay, e.def.w, e.def.h, e.rot);
+          const [wbx, wby] = rotatePoint(bx, by, e.def.w, e.def.h, e.rot);
+          const dx = wbx - wax, dy = wby - way;
+          const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3);
+          this._seg(e.x + wax, e.y + way, dir, Math.hypot(dx, dy), { legs: false, owner: null, tail: true, head: true });
+        }
+        continue;
+      }
       const st = e.def.stage;
       const all = [...paths.in.map((p, i) => ({ p, sec: i > 0, endsAtStage: true })), ...paths.out.map((p, i) => ({ p, sec: i > 0, endsAtStage: false }))];
       for (const { p, sec, endsAtStage } of all) {
