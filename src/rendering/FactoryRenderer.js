@@ -131,14 +131,14 @@ export class FactoryRenderer {
     const shelfMat = mat(PALETTE.cream);
     this.walls = [];
     const D = 4.5; // distance from grid edge
-    const mk = (len, nx, nz) => {
+    const mk = (len, nx, nz, shelves = true) => {
       const g = new THREE.Group();
       const tex = wallTex.clone(); tex.needsUpdate = true; tex.repeat.set(len / 2, 1);
       const wall = new THREE.Mesh(new THREE.BoxGeometry(len, 2.2, 0.25), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
       wall.position.y = 1.1; wall.receiveShadow = true;
       g.add(wall);
       // Shelves with jars.
-      for (let i = -len / 2 + 2; i < len / 2 - 1; i += 4) {
+      for (let i = -len / 2 + 2; shelves && i < len / 2 - 1; i += 4) {
         const shelf = new THREE.Mesh(roundedBox(2, 0.08, 0.4, 0.03), shelfMat);
         shelf.position.set(i, 1.3, 0.3); g.add(shelf);
         const colors = [PALETTE.pink, PALETTE.mint, PALETTE.vanilla, PALETTE.sky, PALETTE.lavender];
@@ -153,7 +153,8 @@ export class FactoryRenderer {
       env.add(g);
       this.walls.push(g);
     };
-    mk(W + 9, 0, -1); mk(W + 9, 0, 1); mk(H + 9, -1, 0); mk(H + 9, 1, 0);
+    // The east wall gets no jar shelves: the Cake Shop display cabinet stands there.
+    mk(W + 9, 0, -1); mk(W + 9, 0, 1); mk(H + 9, -1, 0); mk(H + 9, 1, 0, false);
     wallMat.dispose();
 
     // Bakery props around the factory floor (outside the buildable grid).

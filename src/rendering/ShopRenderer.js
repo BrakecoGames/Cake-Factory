@@ -17,6 +17,16 @@ import { textures, roundedBox, cylinder, mat, PALETTE } from './ModelFactory.js'
 import { parseCakeKey } from '../cakes/CakeSerializer.js';
 import { drawCake } from '../ui/CakePreview.js';
 
+const COUNTER_LEN = 9;        // cells along the factory's east edge
+
+/** Position a mesh (Object3D.position is read-only, so it can't be assigned). */
+function place(m, x, y, z) {
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
 const WALK_SPEED = 2.2;       // world units / second
 const BOX_FLIGHT = 0.8;       // seconds
 const MAX_STACK = 18;         // boxes drawn on the counter
@@ -59,10 +69,12 @@ export class ShopRenderer {
   get W() { return this.game.sim.width; }
   get H() { return this.game.sim.height; }
   /** Counter centre (world). The factory side is west (-X), customers stand east (+X). */
-  get counterPos() { return new THREE.Vector3(this.W / 2 + 2.3, 0, 0); }
-  get standPos() { return new THREE.Vector3(this.W / 2 + 3.45, 0, 0.1); }
-  get spawnPos() { return new THREE.Vector3(this.W / 2 + 3.45, 0, this.H / 2 + 3.6); }
-  get exitPos() { return new THREE.Vector3(this.W / 2 + 3.45, 0, -this.H / 2 - 3.2); }
+  get counterPos() { return new THREE.Vector3(this.W / 2 + 1.3, 0, 0); }
+  get standPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, 0.1); }
+  get spawnPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, this.H / 2 + 3.6); }
+  get exitPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, -this.H / 2 - 3.2); }
+  /** Display cabinet against the east wall (behind the customers). */
+  get vitrinePos() { return new THREE.Vector3(this.W / 2 + 3.95, 0, 0); }
 
   /** Called on reset / expansion: rebuild the counter and put the current customer in place. */
   rebuild() {
@@ -73,6 +85,10 @@ export class ShopRenderer {
     this.counter = this._buildCounter();
     this.counter.position.copy(this.counterPos);
     this.root.add(this.counter);
+    if (this.vitrine) this.root.remove(this.vitrine);
+    this.vitrine = this._buildVitrine();
+    this.vitrine.position.copy(this.vitrinePos);
+    this.root.add(this.vitrine);
     this.stackCount = Math.min(this.game.orders.delivered, MAX_STACK);
     this._layoutStack();
     // The current order's customer is already waiting at the counter.
@@ -87,42 +103,43 @@ export class ShopRenderer {
     const g = new THREE.Group();
     const t = textures();
     // Counter body: customers on +X, staff side toward the factory.
-    const body = new THREE.Mesh(roundedBox(0.9, 0.85, 3.2, 0.08), mat(PALETTE.pink));
+    const L = COUNTER_LEN;
+    const body = new THREE.Mesh(roundedBox(0.9, 0.85, L, 0.08), mat(PALETTE.pink));
     body.position.set(0, 0.425, 0); body.castShadow = true; body.receiveShadow = true;
-    const top = new THREE.Mesh(roundedBox(1.05, 0.08, 3.35, 0.04), mat(PALETTE.cream));
+    const top = new THREE.Mesh(roundedBox(1.05, 0.08, L + 0.15, 0.04), mat(PALETTE.cream));
     top.position.set(0.02, 0.89, 0); top.castShadow = true;
-    const stripe = new THREE.Mesh(roundedBox(0.02, 0.12, 3.0, 0.01), mat(PALETTE.white));
+    const stripe = new THREE.Mesh(roundedBox(0.02, 0.12, L - 0.2, 0.01), mat(PALETTE.white));
     stripe.position.set(0.46, 0.6, 0);
     g.add(body, top, stripe);
     // Glass display case with cakes (north end of the counter).
     const glass = new THREE.Mesh(roundedBox(0.7, 0.42, 1.0, 0.05),
       new THREE.MeshStandardMaterial({ color: '#dff4ff', transparent: true, opacity: 0.35, roughness: 0.05, metalness: 0.1 }));
-    glass.position.set(0, 1.14, -1.05);
+    glass.position.set(0, 1.14, -L / 2 + 0.8);
     g.add(glass);
     const displayColors = [['#f6dfa4', '#ff8fb8'], ['#7a4a2e', '#fffaf2'], ['#f49ab0', '#ffffff']];
     displayColors.forEach(([sponge, top2], i) => {
       const c = new THREE.Mesh(cylinder(0.13, 0.13, 0.12, 18), mat(sponge));
-      c.position.set(0, 1.0, -1.38 + i * 0.32);
+      c.position.set(0, 1.0, -L / 2 + 0.47 + i * 0.32);
       const f = new THREE.Mesh(cylinder(0.135, 0.135, 0.03, 18), mat(top2));
-      f.position.set(0, 1.075, -1.38 + i * 0.32);
+      f.position.set(0, 1.075, -L / 2 + 0.47 + i * 0.32);
       g.add(c, f);
     });
     // Cash register (south end).
     const reg = new THREE.Mesh(roundedBox(0.36, 0.22, 0.34, 0.04), mat(PALETTE.mint));
-    reg.position.set(-0.1, 1.04, 1.2); reg.castShadow = true;
+    reg.position.set(-0.1, 1.04, 1.4); reg.castShadow = true;
     const screen = new THREE.Mesh(roundedBox(0.04, 0.12, 0.24, 0.02), mat('#2f3a44'));
-    screen.position.set(0.12, 1.2, 1.2); screen.rotation.z = 0.4;
+    screen.position.set(0.12, 1.2, 1.4); screen.rotation.z = 0.4;
     const bell = new THREE.Mesh(new THREE.SphereGeometry(0.08, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#ffd84d', { metalness: 0.6, roughness: 0.25 }));
-    bell.position.set(0.3, 0.93, 0.75);
+    bell.position.set(0.3, 0.93, 0.95);
     g.add(reg, screen, bell);
     // Awning on posts + sign.
     const postMat = mat(PALETTE.white);
-    for (const z of [-1.55, 1.55]) {
+    for (const z of [-L / 2 + 0.05, -L / 6, L / 6, L / 2 - 0.05]) {
       const p = new THREE.Mesh(cylinder(0.05, 0.05, 2.1, 10), postMat);
       p.position.set(-0.35, 1.05, z); p.castShadow = true; g.add(p);
     }
-    const awnTex = t.awning.clone(); awnTex.needsUpdate = true; awnTex.wrapS = THREE.RepeatWrapping; awnTex.repeat.set(3, 1);
-    const awning = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 3.4), new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.6 }));
+    const awnTex = t.awning.clone(); awnTex.needsUpdate = true; awnTex.wrapS = THREE.RepeatWrapping; awnTex.repeat.set(L, 1);
+    const awning = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, L + 0.2), new THREE.MeshStandardMaterial({ map: awnTex, roughness: 0.6 }));
     awning.position.set(0.15, 2.1, 0); awning.rotation.z = -0.28; awning.castShadow = true;
     g.add(awning);
     const signC = document.createElement('canvas'); signC.width = 512; signC.height = 128;
@@ -139,6 +156,64 @@ export class ShopRenderer {
     this.stackRoot = new THREE.Group();
     this.stackRoot.position.set(0.2, 0.93, 0.15);
     g.add(this.stackRoot);
+    return g;
+  }
+
+  /**
+   * Long glass display cabinet with cakes, standing against the east wall.
+   * Faces the factory (-X). Hidden whenever that wall is hidden (camera side).
+   */
+  _buildVitrine() {
+    const g = new THREE.Group();
+    const L = 10, D = 0.62, H = 1.55;
+    const frame = mat(PALETTE.pink), cream = mat(PALETTE.cream);
+    const glassMat = new THREE.MeshStandardMaterial({ color: '#e4f6ff', transparent: true, opacity: 0.28, roughness: 0.03, metalness: 0.1, depthWrite: false });
+    // Base cabinet, top, back panel.
+    g.add(place(new THREE.Mesh(roundedBox(D, 0.55, L, 0.06), frame), 0, 0.275, 0));
+    g.add(place(new THREE.Mesh(roundedBox(D + 0.06, 0.1, L + 0.06, 0.04), cream), 0, H, 0));
+    g.add(place(new THREE.Mesh(roundedBox(0.06, H - 0.55, L, 0.02), mat('#fff3f6')), D / 2 - 0.03, 0.55 + (H - 0.55) / 2, 0));
+    // Glass front + glass end panels.
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(L, H - 0.6), glassMat);
+    front.rotation.y = -Math.PI / 2; front.position.set(-D / 2, 0.55 + (H - 0.6) / 2, 0); front.renderOrder = 3;
+    g.add(front);
+    for (const z of [-L / 2, L / 2]) {
+      const side = new THREE.Mesh(new THREE.PlaneGeometry(D, H - 0.6), glassMat);
+      side.position.set(0, 0.55 + (H - 0.6) / 2, z); side.renderOrder = 3;
+      g.add(side);
+    }
+    // Frame posts.
+    for (let i = 0; i <= 5; i++) {
+      const z = -L / 2 + (i * L) / 5;
+      g.add(place(new THREE.Mesh(roundedBox(0.06, H - 0.55, 0.06, 0.02), frame), -D / 2, 0.55 + (H - 0.55) / 2, z));
+    }
+    // Two shelves of cakes (sponge + frosting + a cherry on some).
+    const sponges = ['#f6dfa4', '#7a4a2e', '#f49ab0', '#f7e45e', '#7d8ee8'];
+    const tops = ['#ff8fb8', '#fffaf2', '#8fc8ff', '#ffe27a', '#c3a2ff', '#8de0b4', '#8a5634'];
+    const shelfY = [0.56, 1.0];
+    for (const [si, y] of shelfY.entries()) {
+      if (si > 0) g.add(place(new THREE.Mesh(roundedBox(D - 0.12, 0.03, L - 0.1, 0.01), mat('#eaf6fb', { transparent: true, opacity: 0.6 })), 0, y - 0.02, 0));
+      for (let i = 0; i < 12; i++) {
+        const z = -L / 2 + 0.45 + i * ((L - 0.9) / 11);
+        const k = i * 3 + si * 7;
+        const r = 0.15 + (k % 3) * 0.02;
+        const h = 0.12 + (k % 2) * 0.06;
+        const plate = new THREE.Mesh(cylinder(r + 0.04, r + 0.03, 0.02, 18), mat('#ffffff'));
+        plate.position.set(-0.05, y + 0.01, z);
+        const sp = new THREE.Mesh(cylinder(r, r, h, 18), mat(sponges[k % sponges.length]));
+        sp.position.set(-0.05, y + 0.02 + h / 2, z); sp.castShadow = true;
+        const fr = new THREE.Mesh(cylinder(r + 0.005, r + 0.005, 0.035, 18), mat(tops[k % tops.length]));
+        fr.position.set(-0.05, y + 0.02 + h + 0.017, z);
+        g.add(plate, sp, fr);
+        if (k % 2 === 0) {
+          const ch = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), mat('#e8344e'));
+          ch.position.set(-0.05, y + 0.02 + h + 0.06, z); g.add(ch);
+        }
+      }
+    }
+    // Warm strip light under the top.
+    const light = new THREE.Mesh(roundedBox(0.04, 0.03, L - 0.3, 0.01), new THREE.MeshBasicMaterial({ color: '#fff6d8' }));
+    light.position.set(-D / 2 + 0.08, H - 0.07, 0);
+    g.add(light);
     return g;
   }
 
@@ -312,6 +387,8 @@ export class ShopRenderer {
 
   update(dt) {
     this.time += dt;
+    // The cabinet stands against the east wall: show it only when that wall is visible.
+    if (this.vitrine) this.vitrine.visible = Math.cos(this.fr.camAzimuth ?? Math.PI / 4) < -0.1;
     // Flying boxes: arc from the delivery station to the counter.
     for (let i = this.flying.length - 1; i >= 0; i--) {
       const f = this.flying[i];
