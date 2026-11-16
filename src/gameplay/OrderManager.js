@@ -5,7 +5,7 @@
  * Tracks the active order, validates delivered cakes and pays rewards.
  * Time is simulation time (seconds), so pausing pauses bonus timers too.
  */
-import { getOrderDef, orderIndexById } from './OrderDefs.js';
+import { getOrderDef, orderIndexById, RETIRED_ORDERS } from './OrderDefs.js';
 import { cakeKey } from '../cakes/CakeSerializer.js';
 
 export class OrderManager {
@@ -67,7 +67,8 @@ export class OrderManager {
     if (!s) return;
     const byId = typeof s.id === 'string' ? orderIndexById(s.id) : -1;
     this.index = byId >= 0 ? byId : Math.max(0, s.index | 0);
-    this.delivered = Math.max(0, Math.min(s.delivered | 0, this.current.quantity - 1));
+    const retired = typeof s.id === 'string' && !!RETIRED_ORDERS[s.id];
+    this.delivered = retired ? 0 : Math.max(0, Math.min(s.delivered | 0, this.current.quantity - 1));
     // Resume the bonus clock relative to the restored simulation time.
     this.startedAt = Number.isFinite(s.startedAt) ? s.startedAt : now;
     this.completed = Array.isArray(s.completed) ? s.completed.filter((c) => c && typeof c.id === 'string') : [];

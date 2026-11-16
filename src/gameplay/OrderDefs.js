@@ -36,17 +36,8 @@ export const ORDER_DEFS = [
     cake: whole('vanilla', 'pink'), quantity: 8, perCake: 15, reward: 250, difficulty: 1,
     requires: ['oven', 'froster', 'delivery'],
     hint: 'Put a Frosting Machine between the oven and the station.',
-    unlocks: { flavors: ['chocolate'] },
+    unlocks: { machines: ['cutter', 'trash'], flavors: ['chocolate'] },
     purpose: 'Introduces frosting.',
-  },
-  {
-    id: 'o2_morning_rush', name: 'Morning Rush', customer: 'Café Sunny Side',
-    cake: whole('vanilla'), quantity: 12, perCake: 10, reward: 250, difficulty: 1,
-    requires: ['oven', 'delivery'],
-    bonus: { seconds: 25, reward: 100, text: 'Deliver all 12 within 25 s' },
-    hint: 'Two ovens feeding one line beat the bonus timer. Belts merge from the side.',
-    unlocks: { machines: ['cutter', 'trash'] },
-    purpose: 'Second oven + merging belts.',
   },
   {
     id: 'o4_half_moon', name: 'Half Moon', customer: 'Moonlight Diner',
@@ -139,7 +130,16 @@ export function getOrderDef(index) {
   return makeContractOrder(index - ORDER_DEFS.length + 1);
 }
 
+/**
+ * Orders that were removed from the list, mapped to the order that replaces
+ * them in old saves (progress on a retired order restarts on its replacement).
+ */
+export const RETIRED_ORDERS = Object.freeze({
+  o2_morning_rush: 'o4_half_moon', // a repeat of plain vanilla – removed to cut repetition
+});
+
 export function orderIndexById(id) {
+  if (RETIRED_ORDERS[id]) id = RETIRED_ORDERS[id];
   const i = ORDER_DEFS.findIndex((o) => o.id === id);
   if (i >= 0) return i;
   const m = /^contract_(\d+)$/.exec(id || '');

@@ -98,7 +98,7 @@ game only through `Game` actions (`buildMachine`, `buildBeltPath`, `removeEntity
 - Oven flavor selection; new machines inherit the last chosen setting.
 - Unlocks derived from completed orders (`unlocksAfter(n)`); locked tools show a lock and the
   order that unlocks them; NEW badges + unlock list in the completion card.
-- Orders: Vanilla Delight → Strawberry Frosting → Morning Rush → Half Moon → Half & Half →
+- Orders: Vanilla Delight → Strawberry Frosting → Half Moon → Half & Half →
   Sunrise Cake → Strawberry Cream → Four Flavors → Bakery Fair → repeatable contracts over six
   recipes. Each order has a hint. A test proves every order is buildable with earlier unlocks;
   integration tests build real Half & Half and Sunrise factories and complete the orders.

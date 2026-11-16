@@ -225,7 +225,7 @@ test('locked machines and flavors are refused with a helpful reason', () => {
   const g = new Game();
   const r = g.buildMachine('cutter', 0, 0, 0);
   assert.equal(r.ok, false);
-  assert.match(r.reason, /Morning Rush/);
+  assert.match(r.reason, /Strawberry Frosting/);
   const oven = [...g.sim.entities.values()].find((e) => e.type === 'oven');
   assert.equal(g.configureMachine(oven.id, 'flavor', 'chocolate').ok, false);
   g.orders.index = 2;
@@ -257,8 +257,9 @@ test('v2 (Phase 1) saves migrate to sensible Phase 2 orders', () => {
   assert.equal(s.version, SAVE.FORMAT_VERSION);
   const g = new Game();
   g.loadState(s);
-  assert.equal(g.orders.current.id, 'o2_morning_rush');
-  assert.equal(g.orders.delivered, 4);
+  // Morning Rush was later removed: such saves continue with Half Moon.
+  assert.equal(g.orders.current.id, 'o4_half_moon');
+  assert.equal(g.orders.delivered, 0);
   assert.ok(g.isUnlocked('machines', 'froster'), 'earlier unlocks are granted');
 });
 
