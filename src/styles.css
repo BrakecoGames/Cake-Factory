@@ -328,3 +328,10 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
   .stat.money { min-width: 80px; font-size: 19px; }
 }
 @media (hover: none) { .tool .key { display: none; } }
+
+/* ------------------------------------------------ contract banner (non-blocking) */
+.win-banner { position: fixed; left: 50%; top: 28%; transform: translate(-50%, -50%); z-index: 25; pointer-events: none; text-align: center; background: #fff; border: 3px solid #ffd84d; border-radius: 22px; padding: 12px 26px; box-shadow: var(--shadow); animation: pop .35s; }
+.win-banner.out { opacity: 0; transform: translate(-50%, -60%); transition: all .4s; }
+.wb-title { font-size: 20px; font-weight: 700; color: var(--pink-d); }
+.wb-amt { font-size: 32px; font-weight: 700; color: #c48a00; line-height: 1.1; }
+.wb-sub { font-size: 13px; color: var(--ink-soft); font-weight: 600; }

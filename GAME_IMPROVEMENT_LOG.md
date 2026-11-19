@@ -223,7 +223,7 @@ test: level/size goals showed "1/2" progress before doing anything → stats mad
 **Files.** `src/gameplay/Diagnose.js`, `src/cakes/CakeModel.js`, `src/core/Game.js`, `src/ui/UI.js`,
 `src/styles.css`, `tests/cakes.test.js`, `tests/milestones.test.js`.
 
-**Tests.** 3 new tests (descriptions, frosting reasons, tip lifecycle incl. save + skip) – 97/97.
+**Tests.** 3 new tests (descriptions, frosting reasons, tip lifecycle incl. save + skip) – 95/95.
 Browser: tip card desktop + iPhone 13 (shown, "Got it" hides and saves); orders 1→2 regression with
 real clicks (frosting machine dropped onto the belt, order 2 done in 39 s, cutter card appears).
 
@@ -235,6 +235,48 @@ real clicks (frosting machine dropped onto the belt, order 2 done in 39 s, cutte
 | Usability | 8/10 | tested |
 | Progression | 7.5/10 | estimate |
 | Retention potential | 6.5/10 | estimate |
+| Performance | 7.5/10 | measured |
+| Stability | 8.5/10 | tested |
+| Mobile experience | 7.5/10 | tested |
+| CrazyGames suitability | 7/10 | tested with mock SDK |
+
+---
+
+## Iteration 7 – Verification: can the Cutter order be built with clicks?
+
+**Check.** Played "Half Moon" with real mouse input from the post-order-2 state: Cutter tool →
+click on the existing belt → the cutter auto-rotates into the line and replaces the belt; its empty
+R exit shows a red **!** and the status "No output connected"; Trash tool → click on the cell in
+front of the R exit; order completed (6 cakes) without errors.
+
+**Decision.** No code change needed – the core build loop for the first difficulty jump works as
+designed. (Kept as an iteration because it is the evidence for the Gameplay/Usability scores.)
+
+---
+
+## Iteration 8 – Non-blocking celebration for repeatable contracts
+
+**Problem.** Every completed order opened a modal that disabled input for up to 5 s. For scripted
+orders this is right (new unlocks to show), but repeatable contracts unlock nothing and are
+completed again and again in long sessions – an interruption without information.
+
+**Change.** Contracts without unlocks now show a non-blocking banner (amount, bonus result, next
+contract) with confetti and the completion sound; the factory stays controllable. Scripted orders
+keep the modal.
+
+**Files.** `src/ui/UI.js`, `src/styles.css`.
+
+**Tests.** Browser: completing contract #1 shows the banner, the modal stays hidden, no errors
+(screenshot checked). `npm test` 95/95.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 7.5/10 | screenshots |
+| Gameplay | 7.5/10 | tested (orders 1–3 by clicks) |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 7.5/10 | estimate |
+| Retention potential | 7/10 | estimate |
 | Performance | 7.5/10 | measured |
 | Stability | 8.5/10 | tested |
 | Mobile experience | 7.5/10 | tested |

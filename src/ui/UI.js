@@ -648,6 +648,18 @@ export class UI {
   celebrate(ev) {
     this.audio.play('complete');
     this._confetti();
+    // Repeatable contracts unlock nothing: celebrate without stopping play.
+    const nothingNew = !ev.unlocked?.length && /^contract_/.test(ev.order.id);
+    if (nothingNew && $('modal').classList.contains('hidden')) {
+      const el = document.createElement('div');
+      el.className = 'win-banner';
+      el.innerHTML = `<div class="wb-title">Contract complete!</div><div class="wb-amt">+$${fmt(ev.completionReward)}</div>${
+        ev.order.bonus ? `<div class="wb-sub">${ev.bonus ? '★ Time bonus earned' : 'Bonus missed – speed up your line'}</div>` : ''}<div class="wb-sub">Next: ${ev.next.name} · ${ev.next.quantity} cakes</div>`;
+      document.body.appendChild(el);
+      setTimeout(() => el.classList.add('out'), 2600);
+      setTimeout(() => el.remove(), 3000);
+      return;
+    }
     const bonusLine = ev.order.bonus
       ? (ev.bonus ? `<div class="bonus-line">★ Bonus earned: +$${ev.order.bonus.reward}</div>` : `<div class="next">Bonus missed – faster lines earn +$${ev.order.bonus.reward} next time.</div>`)
       : '';
