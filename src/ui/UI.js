@@ -92,6 +92,29 @@ export class UI {
     this.refreshTutorial();
   }
 
+  /**
+   * The part of the screen not covered by HUD panels (client pixels). Narrow
+   * panels at a side shrink the area horizontally; wide ones vertically.
+   */
+  freeRect() {
+    const W = innerWidth, H = innerHeight;
+    let l = 0, r = W, t = 0, b = H;
+    for (const id of ['hud', 'orderPanel', 'tutorial', 'toolbarWrap', 'camControls', 'inspector']) {
+      const el = $(id);
+      if (!el || el.classList.contains('hidden')) continue;
+      const box = id === 'hud' ? el.querySelector('.hud-center') || el : el;
+      const q = box.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      const sideable = id === 'orderPanel' || id === 'camControls' || id === 'inspector';
+      if (sideable && q.width < W * 0.3) {
+        if (q.left + q.width / 2 > W / 2) r = Math.min(r, q.left); else l = Math.max(l, q.right);
+      } else if (q.top + q.height / 2 < H / 2) t = Math.max(t, q.bottom);
+      else b = Math.min(b, q.top);
+    }
+    const pad = 12;
+    return { x: l + pad, y: t + pad, w: Math.max(0, r - l - pad * 2), h: Math.max(0, b - t - pad * 2) };
+  }
+
   // ------------------------------------------------------------- toolbar
   _buildToolbar() {
     const bar = $('toolbar');

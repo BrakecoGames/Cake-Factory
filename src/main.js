@@ -99,6 +99,20 @@ async function boot() {
   };
   frameCamera();
   camera.target.copy(camera.goal); camera.zoom = camera.goalZoom;
+  /** Fit every machine (or the starter pair) into the screen area that UI panels leave free. */
+  const frameFactory = () => {
+    const pts = [];
+    for (const e of game.sim.entities.values()) {
+      if (e.kind !== 'machine') continue;
+      const [w, h] = e.size;
+      for (const [gx, gy] of [[e.x, e.y], [e.x + w, e.y], [e.x, e.y + h], [e.x + w, e.y + h]]) pts.push(fr.gridToWorld(gx, gy, 0), fr.gridToWorld(gx, gy, 1.4));
+    }
+    camera.setBounds(game.sim.width / 2, game.sim.height / 2);
+    // Extra margin (in cells) so the line between the machines is easy to hit.
+    const grow = 1.5, mid = pts.reduce((a, p) => a.add(p), pts[0].clone().multiplyScalar(0)).multiplyScalar(1 / Math.max(1, pts.length));
+    for (const p of pts) { p.x += Math.sign(p.x - mid.x) * grow; p.z += Math.sign(p.z - mid.z) * grow; }
+    camera.frame(pts, ui.freeRect(), sm.canvas.getBoundingClientRect(), innerWidth < 820 ? 1.6 : 1.25);
+  };
   game.bus.on('factoryResized', () => camera.setBounds(game.sim.width / 2, game.sim.height / 2));
   game.bus.on('reset', () => camera.setBounds(game.sim.width / 2, game.sim.height / 2));
 
@@ -150,6 +164,7 @@ async function boot() {
     game.newGame();
     frameCamera();
     input.setTool('select');
+    if (started) requestAnimationFrame(frameFactory);
     await game.saveNow();
     ui.toast('Progress reset – a fresh bakery awaits!', 'good');
   };
@@ -182,6 +197,8 @@ async function boot() {
     $('startScreen').classList.add('hidden');
     ui.showGame();
     started = true;
+    // Panels are laid out now: frame the factory into the space they leave free.
+    requestAnimationFrame(frameFactory);
     platform.gameplayStart();
     if (!platform.persistent) ui.toast('Browser storage is unavailable – progress will not be saved', 'bad');
   };

@@ -143,6 +143,39 @@ export class CameraController {
     this.goalElevation = ISO_ELEVATION;
   }
 
+  /**
+   * Frame a set of world points so they fit inside `free` (client pixels: the
+   * part of the screen not covered by UI panels) and snap there immediately.
+   * `rect` is the canvas rect. Zoom is capped by `maxZoom`.
+   */
+  frame(points, free, rect, maxZoom = 1.25) {
+    if (!points.length || free.w < 40 || free.h < 40) return;
+    const mid = new THREE.Vector3();
+    for (const p of points) mid.add(p);
+    mid.divideScalar(points.length).setY(0);
+    this.goal.copy(mid); this.target.copy(mid);
+    this.azimuth = this.goalAzimuth; this.elevation = this.goalElevation;
+    this.zoom = 1; this._updateProjection(); this._apply();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const s = {};
+    for (const p of points) {
+      this.project(p, rect, s);
+      minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x);
+      minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y);
+    }
+    const fit = Math.min(free.w / Math.max(1, maxX - minX), free.h / Math.max(1, maxY - minY));
+    this.zoom = this.goalZoom = Math.min(maxZoom, MAX_ZOOM, Math.max(MIN_ZOOM, fit));
+    this._updateProjection(); this._apply();
+    // Move the content's centre from the canvas centre to the free area's centre.
+    this.project(mid, rect, s);
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const k = this.zoom; // screen offsets scale with zoom (orthographic)
+    const contentX = s.x + (cx - (rect.left + rect.width / 2)) * k;
+    const contentY = s.y + (cy - (rect.top + rect.height / 2)) * k;
+    this.panPixels(free.x + free.w / 2 - contentX, free.y + free.h / 2 - contentY);
+    this._apply();
+  }
+
   focus(x, z, zoom) {
     this.goal.set(x, 0, z);
     this._clamp(this.goal);

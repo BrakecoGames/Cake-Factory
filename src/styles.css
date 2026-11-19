@@ -272,7 +272,35 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
   .start-card h1 { font-size: 38px; }
 }
 @media (max-width: 820px) and (orientation: portrait) {
-  #orderPanel { bottom: auto; top: 62px; left: 8px; right: auto; }
-  #tutorial { top: auto; bottom: calc(108px + var(--safe-b)); }
+  /* Compact horizontal order card: picture left, name + progress right. */
+  #orderPanel { bottom: auto; top: 62px; left: 8px; right: auto; width: calc(100vw - 62px); max-width: 360px; padding: 8px 10px; }
+  #orderPanel .order-head { position: absolute; top: 6px; right: 8px; }
+  #orderPanel .order-kicker { display: none; }
+  #orderPanel.collapsed .order-head { position: static; justify-content: flex-end; }
+  .order-body { display: grid; grid-template-columns: 64px 1fr; column-gap: 10px; align-items: center; }
+  .order-cake { grid-column: 1; grid-row: 1 / span 4; margin: 0; padding: 2px; }
+  #orderCake { width: 60px; height: 60px; }
+  .order-desc { display: none; }
+  .order-name, .order-customer, .progress, .order-rewards { grid-column: 2; }
+  .order-name { padding-right: 30px; margin: 0; line-height: 1.15; }
+  .order-customer { font-size: 12px; }
+  .progress { height: 18px; margin-top: 4px; }
+  .progress-text { line-height: 18px; font-size: 12px; }
+  .order-rewards { margin-top: 4px; font-size: 12.5px; }
+  .order-rewards > div { display: flex; gap: 4px; align-items: baseline; }
+  .order-rewards .lbl { display: inline; font-size: 10px; }
+  .bonus, .order-last, .order-hint { grid-column: 1 / -1; font-size: 12px; margin-top: 6px; padding: 4px 8px; }
+  #tutorial { top: auto; bottom: calc(108px + var(--safe-b)); padding: 10px 14px 8px; }
+  .tut-title { font-size: 17px; }
+  .tut-text { font-size: 14px; }
+}
+@media (max-width: 480px) {
+  /* Small phones: logo shrinks to the icon + level so every HUD button fits. */
+  .logo-text { display: none; }
+  .logo-chip { padding: 4px 8px 4px 4px; gap: 4px; }
+  .level-text { font-weight: 700; }
+  .hud-right { gap: 6px; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 12px; }
+  .stat.money { min-width: 80px; font-size: 19px; }
 }
 @media (hover: none) { .tool .key { display: none; } }
