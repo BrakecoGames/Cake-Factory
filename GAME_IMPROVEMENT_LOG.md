@@ -196,3 +196,46 @@ test: level/size goals showed "1/2" progress before doing anything → stats mad
 | Stability | 8.5/10 | tested |
 | Mobile experience | 7/10 | tested |
 | CrazyGames suitability | 7/10 | tested with mock SDK |
+
+---
+
+## Iteration 6 – Clearer orders, rejections and machine onboarding
+
+**Problem (found by playing orders 1–3 with real clicks).**
+1. Right after order 1, plain cakes still on the belt were rejected with "The frosting does not
+   match" – vague, at the exact moment a new player needs direction.
+2. Order descriptions such as "Vanilla | — | — | Vanilla" (Half Moon) were cryptic.
+3. The tutorial ends after the Frosting Machine, but the Cutter (L/R exits + trash) is the biggest
+   difficulty jump of the first 10 minutes; only a text hint explained it.
+
+**Change.**
+- `diagnoseMismatch`: "Needs pink frosting – add a Frosting Machine to the line", "Wrong frosting
+  colour: white instead of pink", "No frosting wanted – take the Frosting Machine out of this line".
+- `describeCake`: "Left half Vanilla", "Left Vanilla · right Chocolate", "Top Chocolate · bottom
+  Vanilla", quadrant labels (TL/TR/BR/BL) only when needed.
+- "How it works" cards with a small diagram for the Cutter, Combiner and Rotator. Shown once, when
+  an order first needs a machine the player has never built; dismissed with "Got it" or by placing
+  the machine; stored in the save (`seenTips`, optional field); never shown after "Skip tutorial".
+  The highlighted tool button points at the machine. On portrait phones the order hint hides while
+  a card is open (it repeated the same text).
+- Level chip text no longer wraps on phones.
+
+**Files.** `src/gameplay/Diagnose.js`, `src/cakes/CakeModel.js`, `src/core/Game.js`, `src/ui/UI.js`,
+`src/styles.css`, `tests/cakes.test.js`, `tests/milestones.test.js`.
+
+**Tests.** 3 new tests (descriptions, frosting reasons, tip lifecycle incl. save + skip) – 97/97.
+Browser: tip card desktop + iPhone 13 (shown, "Got it" hides and saves); orders 1→2 regression with
+real clicks (frosting machine dropped onto the belt, order 2 done in 39 s, cutter card appears).
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 7.5/10 | screenshots |
+| Gameplay | 7/10 | estimate |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 7.5/10 | estimate |
+| Retention potential | 6.5/10 | estimate |
+| Performance | 7.5/10 | measured |
+| Stability | 8.5/10 | tested |
+| Mobile experience | 7.5/10 | tested |
+| CrazyGames suitability | 7/10 | tested with mock SDK |

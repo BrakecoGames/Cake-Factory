@@ -73,7 +73,7 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
 .ms-item.done .ms-reward { color: var(--mint-d); }
 .logo-icon { width: 38px; height: 38px; }
 .logo-text { font-weight: 700; font-size: 18px; color: var(--pink-d); line-height: 1; }
-.level-text { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+.level-text { font-size: 13px; color: var(--ink-soft); font-weight: 500; white-space: nowrap; }
 .hud-center { display: flex; gap: 8px; align-items: center; background: var(--card); border-radius: 18px; padding: 6px 8px; box-shadow: var(--shadow); }
 .stat { display: flex; align-items: baseline; gap: 4px; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
 .stat.money { background: linear-gradient(180deg, #fff3c4, #ffe07a); font-size: 24px; color: #7a4d00; min-width: 110px; justify-content: center; box-shadow: inset 0 -3px 0 rgba(200, 140, 0, .25); }
@@ -208,6 +208,11 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
 .tut-title { font-size: 20px; font-weight: 700; color: var(--pink-d); margin: 2px 0 4px; }
 .tut-text { font-size: 15px; line-height: 1.4; }
 .tut-hint { margin-top: 8px; background: #ffe8ec; color: #c22f4a; border-radius: 10px; padding: 6px 10px; font-size: 13.5px; font-weight: 500; }
+.tip-svg { display: flex; justify-content: center; margin: 2px 0 6px; }
+.tip-svg svg { width: 190px; height: 60px; }
+#tutorial.is-tip { border-color: #8fcbff; }
+#tutorial.is-tip .tut-step { color: #3f86c7; }
+#tutorial.is-tip .tut-actions { justify-content: flex-end; }
 .tut-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 @keyframes pop { from { transform: translateX(-50%) scale(.9); opacity: 0; } }
 
@@ -308,6 +313,8 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
   .order-rewards .lbl { display: inline; font-size: 10px; }
   .bonus, .order-last, .order-hint { grid-column: 1 / -1; font-size: 12px; margin-top: 6px; padding: 4px 8px; }
   #tutorial { top: auto; bottom: calc(108px + var(--safe-b)); padding: 10px 14px 8px; }
+  /* While a tutorial / machine card explains things, the order hint would repeat it. */
+  body:has(#tutorial:not(.hidden)) .order-hint { display: none; }
   .tut-title { font-size: 17px; }
   .tut-text { font-size: 14px; }
 }

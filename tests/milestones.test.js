@@ -60,3 +60,19 @@ test('MilestoneManager ignores unknown ids from saves and sorts next goals by pr
   const next = m.next({ cakes: 45, orders: 0, machines: 0, levelUps: 0, bonuses: 0, earned: 0, expansions: 0 }, 1);
   assert.equal(next[0].def.id, 'cakes_50');
 });
+
+test('machine tips: shown once for a newly needed machine, never after Skip tutorial', () => {
+  const g = new Game();
+  const ids = ['cutter', 'combiner', 'rotator'];
+  assert.equal(g.pendingMachineTip(ids), null, 'not during the tutorial');
+  while (g.tutorial.active) g.tutorial.next();
+  g.orders.index = 2; // Half Moon needs the cutter
+  assert.equal(g.pendingMachineTip(ids), 'cutter');
+  g.markTipSeen('cutter');
+  assert.equal(g.pendingMachineTip(ids), null);
+  const s = JSON.parse(JSON.stringify(g.getSaveState()));
+  const g2 = new Game(); g2.loadState(s);
+  assert.equal(g2.pendingMachineTip(ids), null, 'seen tips are saved');
+  const g3 = new Game(); g3.tutorial.skip(); g3.orders.index = 2;
+  assert.equal(g3.pendingMachineTip(ids), null, 'skipping the tutorial skips tips');
+});

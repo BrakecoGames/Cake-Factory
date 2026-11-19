@@ -7,7 +7,7 @@
  */
 import { cakeKey } from '../cakes/CakeSerializer.js';
 import { rotateCW, rotateCCW, rotate180 } from '../cakes/CakeOperations.js';
-import { cloneCake } from '../cakes/CakeModel.js';
+import { cloneCake, FROSTINGS } from '../cakes/CakeModel.js';
 
 /** Swap west and east halves (TL↔TR, BL↔BR) on every layer. */
 export function mirrorLeftRight(cake) {
@@ -37,6 +37,14 @@ export function diagnoseMismatch(delivered, ordered) {
   const holes = (c) => c.layers.flatMap((l) => l.quadrants).filter((p) => !p).length;
   if (holes(delivered) > holes(ordered)) return 'Pieces are missing – the cake is not complete';
   if (flavorsOf(delivered) !== flavorsOf(ordered)) return 'Wrong flavors';
-  if (frostingsOf(delivered) !== frostingsOf(ordered)) return 'The frosting does not match';
+  if (frostingsOf(delivered) !== frostingsOf(ordered)) {
+    const colors = (c) => [...new Set(c.layers.flatMap((l) => l.quadrants).filter((p) => p && p.frosting).map((p) => p.frosting))];
+    const want = colors(ordered), got = colors(delivered);
+    const name = (k) => FROSTINGS[k]?.name.toLowerCase() ?? k;
+    if (want.length && !got.length) return `Needs ${want.map(name).join(' + ')} frosting – add a Frosting Machine to the line`;
+    if (!want.length && got.length) return 'No frosting wanted – take the Frosting Machine out of this line';
+    if (want.length === 1 && got.length === 1 && want[0] !== got[0]) return `Wrong frosting colour: ${name(got[0])} instead of ${name(want[0])}`;
+    return 'The frosting does not match';
+  }
   return 'Right ingredients, wrong arrangement';
 }

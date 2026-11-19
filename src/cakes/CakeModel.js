@@ -120,7 +120,22 @@ export function describeCake(cake) {
       return s;
     });
     const same = qs.every((q) => q === qs[0]);
-    const body = same ? (qs[0] === '—' ? 'empty' : `whole ${qs[0]}`) : qs.join(' | ');
+    // Quadrants: 0 TL, 1 TR, 2 BR, 3 BL. Name halves the way players think of them.
+    const halves = [['left', 0, 3], ['right', 1, 2], ['top', 0, 1], ['bottom', 3, 2]];
+    const half = (a, b) => qs[a] !== '—' && qs[a] === qs[b];
+    const empty = (a, b) => qs[a] === '—' && qs[b] === '—';
+    let body;
+    if (same) body = qs[0] === '—' ? 'empty' : `whole ${qs[0]}`;
+    else {
+      const pairs = [[0, 1], [2, 3]].map(([i, j]) => [halves[i], halves[j]]);
+      for (const [h1, h2] of pairs) {
+        if (half(h1[1], h1[2]) && empty(h2[1], h2[2])) body = `${h1[0]} half ${qs[h1[1]]}`;
+        else if (half(h2[1], h2[2]) && empty(h1[1], h1[2])) body = `${h2[0]} half ${qs[h2[1]]}`;
+        else if (half(h1[1], h1[2]) && half(h2[1], h2[2])) body = `${h1[0]} ${qs[h1[1]]} · ${h2[0]} ${qs[h2[1]]}`;
+        if (body) break;
+      }
+      if (!body) body = ['TL', 'TR', 'BR', 'BL'].map((n, i) => `${n} ${qs[i]}`).join(' · ');
+    }
     return cake.layers.length > 1 ? `Layer ${i + 1}: ${body}` : body;
   });
   return parts.join(' · ');

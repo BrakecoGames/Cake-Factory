@@ -37,6 +37,7 @@ export class Game {
     this.global = { belt: 1, reputation: 1, size: 1 };
     this.milestones = new MilestoneManager();
     this.stats = { cakes: 0 };
+    this.seenTips = new Set();
     this._attach(new FactorySimulation(GRID.START_WIDTH, GRID.START_HEIGHT), new EconomyManager(ECONOMY.START_MONEY),
       new OrderManager(), new TutorialManager());
     // Starting bakery: one oven facing east and the delivery station, a few
@@ -119,6 +120,21 @@ export class Game {
     this.bus.emit('money');
     this.requestSave();
   }
+
+  /**
+   * A machine the current order needs that the player has never been shown and
+   * has never built (or null). Respects "Skip tutorial".
+   */
+  pendingMachineTip(tipIds) {
+    if (!this.tutorial.done || this.tutorial.skipped) return null;
+    const placed = new Set([...this.sim.entities.values()].map((e) => e.type));
+    for (const m of this.orders.current.requires || []) {
+      if (tipIds.includes(m) && !this.seenTips.has(m) && !placed.has(m) && this.isUnlocked('machines', m)) return m;
+    }
+    return null;
+  }
+
+  markTipSeen(id) { this.seenTips.add(id); this.requestSave(); }
 
   // -------------------------------------------------------------- ticking
   fixedUpdate() {
@@ -340,6 +356,7 @@ export class Game {
       global: { ...this.global },
       milestones: this.milestones.serialize(),
       stats: { ...this.stats },
+      seenTips: [...this.seenTips],
       simTime: this.sim.time,
       factory: this.sim.serialize(),
     };
@@ -371,6 +388,7 @@ export class Game {
     const cakes = Number.isFinite(s.stats?.cakes) ? s.stats.cakes
       : this.orders.completed.reduce((n, c) => n + (getOrderDef(orderIndexById(c.id))?.quantity || 0), 0) + this.orders.delivered;
     this.stats = { cakes: Math.max(0, Math.floor(cakes)) };
+    this.seenTips = new Set(Array.isArray(s.seenTips) ? s.seenTips.filter((t) => typeof t === 'string') : []);
     this.bus.emit('reset');
     return problems;
   }

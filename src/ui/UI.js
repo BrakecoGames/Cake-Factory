@@ -55,6 +55,35 @@ const STATUS_TEXT = {
   [STATUS.WORKING]: 'Working', [STATUS.IDLE]: 'Waiting for cakes', [STATUS.BLOCKED]: 'Blocked – output full', [STATUS.NO_OUTPUT]: 'No output connected',
   [STATUS.INCOMPATIBLE]: 'Pieces don’t fit',
 };
+/** Short "how it works" cards shown when an order first needs a new machine. */
+const CAKE_L = '<path d="M30 8a22 22 0 0 0 0 44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/>';
+const CAKE_R = (c) => `<path d="M30 8a22 22 0 0 1 0 44z" fill="${c}" stroke="#7d5a45" stroke-width="1.5"/>`;
+const ARROW = (x, y, label, col) => `<path d="M${x} ${y}h22" stroke="${col}" stroke-width="3" stroke-linecap="round"/><path d="M${x + 22} ${y - 5}l7 5-7 5z" fill="${col}"/><text x="${x + 8}" y="${y - 6}" font-size="11" font-weight="700" fill="${col}">${label}</text>`;
+const MACHINE_TIPS = {
+  cutter: {
+    title: 'New machine: Cake Cutter',
+    svg: `<svg viewBox="0 0 190 60">${CAKE_L}${CAKE_R('#f6dfa4')}<path d="M30 4v52" stroke="#e9668f" stroke-width="2.5" stroke-dasharray="4 3"/>
+      ${ARROW(62, 18, 'L', '#3fb27f')}<path d="M100 8a11 11 0 0 0 0 22z" fill="#f6dfa4" stroke="#c9a96a"/>
+      ${ARROW(62, 44, 'R', '#e9668f')}<path d="M100 33a11 11 0 0 1 0 22z" fill="#f6dfa4" stroke="#c9a96a"/>
+      <text x="118" y="23" font-size="11" fill="#4a2c3a">left half</text><text x="118" y="48" font-size="11" fill="#4a2c3a">right half</text></svg>`,
+    text: 'It cuts a cake in two. The <b>left</b> half (as in the order picture) leaves the <b>L</b> exit, the <b>right</b> half the <b>R</b> exit. Every exit needs a belt – send halves you don’t need into a <b>Trash Bin</b>.',
+  },
+  combiner: {
+    title: 'New machine: Cake Combiner',
+    svg: `<svg viewBox="0 0 190 60"><path d="M30 8a22 22 0 0 0 0 44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/><text x="34" y="34" font-size="20" font-weight="700" fill="#4a2c3a">+</text>
+      <path d="M60 8a22 22 0 0 1 0 44z" fill="#7a4a2e" stroke="#5a3420" stroke-width="1.5"/>${ARROW(92, 30, '', '#3fb27f')}
+      <path d="M150 8a22 22 0 0 0 0 44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/><path d="M150 8a22 22 0 0 1 0 44z" fill="#7a4a2e" stroke="#5a3420" stroke-width="1.5"/></svg>`,
+    text: 'Feed one piece into each input (the main input and the side input). Pieces that fill <b>different</b> quadrants are joined into one cake; overlapping pieces are refused.',
+  },
+  rotator: {
+    title: 'New machine: Cake Rotator',
+    svg: `<svg viewBox="0 0 190 60"><path d="M50 8a22 22 0 0 0 0 44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/>
+      <path d="M86 18a16 16 0 0 1 22 0" stroke="#e9668f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M110 12l1 9-8-2z" fill="#e9668f"/>
+      <path d="M128 30a22 22 0 0 1 44 0z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/></svg>`,
+    text: 'Turns a cake <b>90° clockwise</b>: a left half becomes a <b>top</b> half, a right half a bottom half. Click the order picture to preview rotations.',
+  },
+};
+
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="3" fill="#8a6676"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#8a6676" stroke-width="2.5" fill="none"/></svg>';
 
 export class UI {
@@ -205,7 +234,11 @@ export class UI {
     $('btnUpgrades').addEventListener('click', () => { this.audio.unlock(); this.openUpgrades(); });
     $('btnMilestones').addEventListener('click', () => { this.audio.unlock(); this.audio.play('click'); this.openMilestones(); });
     $('tutSkip').addEventListener('click', () => { this.game.tutorial.skip(); this.toast('Tutorial skipped – press ? for help any time'); });
-    $('tutNext').addEventListener('click', () => { this.audio.play('click'); this.game.tutorial.next(); });
+    $('tutNext').addEventListener('click', () => {
+      this.audio.play('click');
+      if (this._tip) { this.game.markTipSeen(this._tip); this._tip = null; this.refreshTutorial(); return; }
+      this.game.tutorial.next();
+    });
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !$('modal').classList.contains('hidden')) { this.closeModal(); e.stopPropagation(); }
       if (e.key.toLowerCase() === 'p' && !$('hud').classList.contains('hidden')) this.onPauseToggle();
@@ -237,7 +270,8 @@ export class UI {
     });
     bus.on('itemDestroyed', () => this.toast('A cake was discarded with the removed part', ''));
     bus.on('orderProgress', () => this.refreshOrder());
-    bus.on('orderCompleted', (ev) => { this.refreshOrder(); this.celebrate(ev); });
+    bus.on('orderCompleted', (ev) => { this.refreshOrder(); this.celebrate(ev); this.refreshTutorial(); });
+    bus.on('entityAdded', (e) => { if (this._tip && e.type === this._tip) { this.game.markTipSeen(this._tip); this._tip = null; this.refreshTutorial(); } });
     bus.on('tutorial', () => this.refreshTutorial());
     bus.on('unlocked', (list) => {
       for (const u of list) {
@@ -340,7 +374,7 @@ export class UI {
     }
     $('orderName').textContent = o.name;
     $('orderCustomer').textContent = `for ${o.customer}`;
-    $('orderDesc').textContent = describeCake(this._orderCake).replace(/^whole /, 'Whole ');
+    { const d = describeCake(this._orderCake); $('orderDesc').textContent = d[0].toUpperCase() + d.slice(1); }
     $('orderProgress').textContent = `${om.delivered} / ${o.quantity}`;
     $('orderBar').style.width = `${(om.delivered / o.quantity) * 100}%`;
     $('orderPer').textContent = `$${o.perCake}`;
@@ -460,7 +494,8 @@ export class UI {
     const step = t.currentStep;
     for (const b of Object.values(this.toolButtons)) b.classList.remove('highlight');
     this.onHighlight?.(step?.highlight?.world || []);
-    if (!step) { $('tutorial').classList.add('hidden'); return; }
+    $('tutorial').classList.toggle('is-tip', false);
+    if (!step) { this._showMachineTip(); return; }
     $('tutorial').classList.remove('hidden');
     $('tutStep').textContent = `Tutorial ${t.step + 1}/${TUTORIAL_STEPS.length}`;
     $('tutTitle').textContent = step.title;
@@ -471,6 +506,24 @@ export class UI {
     next.textContent = step.button || 'Next';
     if (step.highlight?.tool && this.toolButtons[step.highlight.tool]) this.toolButtons[step.highlight.tool].classList.add('highlight');
     if (step.id === 'reward' || step.id === 'expand') $('tutSkip').classList.add('hidden'); else $('tutSkip').classList.remove('hidden');
+  }
+
+  /** After the tutorial: explain a machine the moment an order first needs it. */
+  _showMachineTip() {
+    const id = this.game.pendingMachineTip(Object.keys(MACHINE_TIPS));
+    this._tip = id;
+    if (!id) { $('tutorial').classList.add('hidden'); return; }
+    const tip = MACHINE_TIPS[id];
+    $('tutorial').classList.remove('hidden');
+    $('tutorial').classList.add('is-tip');
+    $('tutStep').textContent = 'How it works';
+    $('tutTitle').textContent = tip.title;
+    $('tutText').innerHTML = `<div class="tip-svg">${tip.svg}</div>${tip.text}`;
+    $('tutHint').classList.add('hidden');
+    $('tutSkip').classList.add('hidden');
+    $('tutNext').classList.remove('hidden');
+    $('tutNext').textContent = 'Got it';
+    if (this.toolButtons[id]) this.toolButtons[id].classList.add('highlight');
   }
 
   _updateTutorialHint() {

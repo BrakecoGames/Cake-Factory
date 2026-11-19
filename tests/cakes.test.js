@@ -101,3 +101,21 @@ test('invalid cake data is rejected', () => {
   assert.equal(isValidCakeData({ layers: [{ quadrants: [{ flavor: 'pizza' }, null, null, null] }] }), false);
   assert.equal(deserializeCake({ layers: [] }), null);
 });
+
+test('describeCake names halves the way players think of them', async () => {
+  const { describeCake } = await import('../src/cakes/CakeModel.js');
+  const { parseCakeKey } = await import('../src/cakes/CakeSerializer.js');
+  assert.equal(describeCake(parseCakeKey('vanilla:_:_,-,-,vanilla:_:_')), 'left half Vanilla');
+  assert.equal(describeCake(parseCakeKey('vanilla:_:_,chocolate:_:_,chocolate:_:_,vanilla:_:_')), 'left Vanilla · right Chocolate');
+  assert.equal(describeCake(parseCakeKey('chocolate:_:_,chocolate:_:_,vanilla:_:_,vanilla:_:_')), 'top Chocolate · bottom Vanilla');
+  assert.match(describeCake(parseCakeKey('vanilla:_:_,chocolate:_:_,strawberry:_:_,lemon:_:_')), /^TL Vanilla · TR Chocolate/);
+});
+
+test('frosting mismatches say what to do', async () => {
+  const { diagnoseMismatch } = await import('../src/gameplay/Diagnose.js');
+  const { parseCakeKey } = await import('../src/cakes/CakeSerializer.js');
+  const w = (fr) => parseCakeKey(Array(4).fill(`vanilla:${fr}:_`).join(','));
+  assert.match(diagnoseMismatch(w('_'), w('pink')), /Needs pink frosting/);
+  assert.match(diagnoseMismatch(w('white'), w('pink')), /white instead of pink/);
+  assert.match(diagnoseMismatch(w('pink'), w('_')), /No frosting wanted/);
+});
