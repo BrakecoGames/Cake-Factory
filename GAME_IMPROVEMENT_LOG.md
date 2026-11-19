@@ -134,3 +134,65 @@ human: upload `npm run build:crazygames` output to the CrazyGames developer port
 | Stability | 8.5/10 | tested |
 | Mobile experience | 7/10 | tested |
 | CrazyGames suitability | 7/10 | tested with mock SDK (was 5) |
+
+---
+
+## Iteration 4 – Large-factory performance check + order panel overflow
+
+**Problem / check.** Unknown behaviour of big factories; order panel height unbounded.
+
+**Measured (Playwright, 36×36 factory, 70 machines, 490 belts, 52 cakes moving).**
+385 draw calls, 0.5 ms simulation per tick, no errors. Belts are already instanced; machine draw
+calls scale linearly but stay well within budget. **Decision: no renderer change** (risk without
+measurable benefit). The screenshot did show a real UI bug: with bonus + rejected cake + hint the
+order panel grew over the camera buttons.
+
+**Change.** Order panel gets a `max-height` (desktop, landscape phone, portrait phone) with a thin
+scrollbar; name, picture and progress stay on top.
+
+**Files.** `src/styles.css`.
+
+**Tests.** Stress script screenshot; regression play tests.
+
+---
+
+## Iteration 5 – Milestones (long-term goals)
+
+**Problem.** After the 8 scripted orders the only goals were ever-larger contracts; nothing showed
+the player what to aim for next. Weak retention for sessions 2+.
+
+**Change.**
+- `src/gameplay/MilestoneManager.js` (pure data, no DOM): 18 milestones over cakes delivered,
+  orders completed, time bonuses, production machines, machine upgrades, total earnings and
+  factory expansions, with cash rewards ($50 → $8,000). Progress is read from real game state,
+  so it can never desync.
+- `Game.milestoneStats()`, check twice per second, rewards via `EconomyManager.grant()` (not
+  counted as production income), `milestone` event.
+- Save: optional `milestones` + `stats` fields (format stays v4, fully backward compatible).
+  Old saves get an estimate of delivered cakes from finished orders; already-deserved milestones
+  are announced and paid on the next check.
+- UI: the logo/level chip is now a button with a 🏆 counter and a red dot for new milestones;
+  toast + upgrade sound when reached; Milestones panel with progress bars, closest goals first.
+- Pacing: first milestone (10 cakes) lands during order 2 (≈1–2 min in), 3 orders at ≈5 min.
+
+**Files.** `src/gameplay/MilestoneManager.js` (new), `src/core/Game.js`,
+`src/gameplay/EconomyManager.js`, `src/ui/UI.js`, `index.html`, `src/styles.css`,
+`tests/milestones.test.js` (new).
+
+**Tests.** 4 new tests (unique ids, reached by real play and paid once, not counted as income,
+save round-trip + old-save estimate, unknown ids ignored) – 92/92. Browser: toast, counter, panel
+checked on desktop and iPhone 13; full tutorial regression on both. Found and fixed during the
+test: level/size goals showed "1/2" progress before doing anything → stats made 0-based.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 7/10 | screenshots |
+| Gameplay | 7/10 | estimate |
+| Visual quality | 8/10 | screenshots |
+| Usability | 7.5/10 | tested |
+| Progression | 7/10 | estimate (was 6) |
+| Retention potential | 6.5/10 | estimate (was 5) |
+| Performance | 7.5/10 | measured draw calls / sim time |
+| Stability | 8.5/10 | tested |
+| Mobile experience | 7/10 | tested |
+| CrazyGames suitability | 7/10 | tested with mock SDK |

@@ -32,13 +32,13 @@
     <!-- ===================== HUD ===================== -->
     <div id="hud" class="hidden">
       <div class="hud-left">
-        <div class="logo-chip">
+        <button class="logo-chip" id="btnMilestones" title="Milestones" aria-label="Milestones">
           <svg viewBox="0 0 40 40" class="logo-icon" aria-hidden="true"><ellipse cx="20" cy="30" rx="16" ry="5" fill="#fff"/><rect x="7" y="17" width="26" height="12" rx="4" fill="#ffe6a3"/><path d="M7 21c3 3 6-2 9 1s6-2 9 1 5-1 8 0v-4a4 4 0 0 0-4-4H11a4 4 0 0 0-4 4z" fill="#ff8fb1"/><circle cx="20" cy="11" r="3.5" fill="#e8344e"/><path d="M20 8c1-3 3-4 5-4" stroke="#4fbf90" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-          <div>
-            <div class="logo-text">Cake Factory</div>
-            <div class="level-text">Level <span id="level">1</span></div>
-          </div>
-        </div>
+          <span class="logo-words">
+            <span class="logo-text">Cake Factory</span>
+            <span class="level-text">Level <span id="level">1</span><span class="trophy" title="Milestones reached">🏆 <span id="trophies">0</span></span></span>
+          </span>
+        </button>
       </div>
       <div class="hud-center">
         <div class="stat money"><span class="coin">$</span><span id="money">500</span></div>

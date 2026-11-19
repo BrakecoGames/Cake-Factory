@@ -35,6 +35,11 @@ export class EconomyManager {
     this._income.push([now, amount]);
   }
 
+  /** A gift (milestone reward): money, but not production income. */
+  grant(amount) {
+    if (amount > 0) this.money += amount;
+  }
+
   refund(amount) {
     if (amount > 0) { this.money += amount; this.totalSpent -= amount; }
   }

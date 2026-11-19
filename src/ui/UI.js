@@ -203,6 +203,7 @@ export class UI {
       this._renderInspector();
     });
     $('btnUpgrades').addEventListener('click', () => { this.audio.unlock(); this.openUpgrades(); });
+    $('btnMilestones').addEventListener('click', () => { this.audio.unlock(); this.audio.play('click'); this.openMilestones(); });
     $('tutSkip').addEventListener('click', () => { this.game.tutorial.skip(); this.toast('Tutorial skipped – press ? for help any time'); });
     $('tutNext').addEventListener('click', () => { this.audio.play('click'); this.game.tutorial.next(); });
     window.addEventListener('keydown', (e) => {
@@ -243,6 +244,15 @@ export class UI {
         if (u.kind === 'machines' && this.toolButtons[u.value]) this.toolButtons[u.value].classList.add('is-new');
       }
     });
+    bus.on('milestone', ({ reached, total }) => {
+      this.audio.play('upgrade');
+      const text = reached.length === 1 ? `🏆 Milestone: ${reached[0].name}! +$${fmt(total)}` : `🏆 ${reached.length} milestones reached! +$${fmt(total)}`;
+      this.toast(text, 'good');
+      const chip = $('btnMilestones');
+      chip.classList.add('has-new');
+      chip.classList.toggle('bump', false); void chip.offsetWidth; chip.classList.add('bump');
+      $('trophies').textContent = this.game.milestones.count;
+    });
     bus.on('reset', () => { this.refreshOrder(); this.refreshTutorial(); this.showInspector(null); this.moneyShown = this.game.economy.money; });
   }
 
@@ -281,6 +291,7 @@ export class UI {
       $('income').textContent = `$${fmt(eco.incomePerMinute(now))}`;
       $('rate').textContent = eco.cakesPerMinute(now);
       $('level').textContent = this.game.level;
+      $('trophies').textContent = this.game.milestones.count;
       const unlocked = this.game.unlocks.machines;
       for (const [t, b] of Object.entries(this.toolButtons)) {
         const def = MACHINE_DEFS[t];
@@ -706,6 +717,28 @@ export class UI {
     };
     this.openModal('');
     render();
+  }
+
+  /** Milestones panel: every long-term goal with its progress and reward. */
+  openMilestones() {
+    $('btnMilestones').classList.toggle('has-new', false);
+    const ms = this.game.milestones;
+    const prog = ms.progress(this.game.milestoneStats());
+    // Unreached first (closest to done on top), then the reached ones.
+    prog.sort((a, b) => (a.done - b.done) || (b.value / b.def.goal - a.value / a.def.goal));
+    const items = prog.map(({ def, value, done }) => `
+      <div class="ms-item ${done ? 'done' : ''}">
+        <div class="ms-icon">🏆</div>
+        <div><div class="ms-name">${def.name}</div><div class="ms-desc">${def.desc}${done ? '' : ` · ${fmt(value)} / ${fmt(def.goal)}`}</div>
+          ${done ? '' : `<div class="ms-bar"><i style="width:${Math.round((value / def.goal) * 100)}%"></i></div>`}</div>
+        <div class="ms-reward">${done ? '✓' : `+$${fmt(def.reward)}`}</div>
+      </div>`).join('');
+    this.openModal(`
+      <h2>Milestones · ${ms.count}/${ms.total}</h2>
+      <p class="ms-intro">Long-term goals for your bakery. Rewards are paid automatically.</p>
+      <div class="ms-list">${items}</div>
+      <div class="actions"><button class="btn primary" id="msClose">Done</button></div>`);
+    $('msClose').onclick = () => this.closeModal();
   }
 
   _unlockHtml(list) {

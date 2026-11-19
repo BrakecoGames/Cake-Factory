@@ -13,8 +13,9 @@ import { getDef } from '../machines/MachineDefs.js';
 import { EconomyManager } from '../gameplay/EconomyManager.js';
 import { OrderManager } from '../gameplay/OrderManager.js';
 import { TutorialManager } from '../gameplay/TutorialManager.js';
+import { MilestoneManager } from '../gameplay/MilestoneManager.js';
 import { DIR } from '../simulation/Grid.js';
-import { ORDER_DEFS, unlocksAfter } from '../gameplay/OrderDefs.js';
+import { ORDER_DEFS, unlocksAfter, getOrderDef, orderIndexById } from '../gameplay/OrderDefs.js';
 import { CONFIG_OPTIONS, ROTATOR_MODE_LEVEL } from '../machines/MachineDefs.js';
 import { FLAVORS, FROSTINGS } from '../cakes/CakeModel.js';
 
@@ -26,6 +27,7 @@ export class Game {
     this.settings = { ...DEFAULT_SETTINGS };
     this.saveManager = null;
     this.lastConfig = {}; // remembered per machine type for newly placed machines
+    this._msTick = 0;
     this.newGame();
   }
 
@@ -33,6 +35,8 @@ export class Game {
   newGame() {
     this.lastConfig = {};
     this.global = { belt: 1, reputation: 1, size: 1 };
+    this.milestones = new MilestoneManager();
+    this.stats = { cakes: 0 };
     this._attach(new FactorySimulation(GRID.START_WIDTH, GRID.START_HEIGHT), new EconomyManager(ECONOMY.START_MONEY),
       new OrderManager(), new TutorialManager());
     // Starting bakery: one oven facing east and the delivery station, a few
@@ -88,6 +92,34 @@ export class Game {
     return out;
   }
 
+  // ----------------------------------------------------------- milestones
+  /** Numbers the milestones are measured against. */
+  milestoneStats() {
+    let machines = 0, maxLevel = 1;
+    for (const e of this.sim.entities.values()) {
+      if (e.kind !== 'machine') continue;
+      // Delivery stations and trash bins are not production machines.
+      if (e.type !== 'delivery' && e.type !== 'trash') machines++;
+      maxLevel = Math.max(maxLevel, e.level || 1);
+    }
+    const done = this.orders.completed;
+    return {
+      cakes: this.stats.cakes, orders: done.length, bonuses: done.filter((c) => c.bonus).length,
+      machines, levelUps: maxLevel - 1, earned: this.economy.totalEarned, expansions: this.global.size - 1,
+    };
+  }
+
+  _checkMilestones() {
+    const reached = this.milestones.check(this.milestoneStats());
+    if (!reached.length) return;
+    let total = 0;
+    for (const m of reached) total += m.reward;
+    this.economy.grant(total);
+    this.bus.emit('milestone', { reached, total });
+    this.bus.emit('money');
+    this.requestSave();
+  }
+
   // -------------------------------------------------------------- ticking
   fixedUpdate() {
     this.sim.step();
@@ -97,6 +129,7 @@ export class Game {
         if (ev.accepted) {
           this.economy.earn(ev.reward, this.sim.time);
           this.economy.recordDelivery(this.sim.time);
+          this.stats.cakes++;
           this.tutorial.signal('firstDelivery');
         }
         this.bus.emit('delivered', ev);
@@ -108,6 +141,7 @@ export class Game {
         console.error('Machine produced invalid data', ev);
       }
     }
+    if (++this._msTick >= 15) { this._msTick = 0; this._checkMilestones(); }
     // State-based tutorial conditions.
     const step = this.tutorial.currentStep;
     if (step && step.advance === 'ovenConnected') {
@@ -304,6 +338,8 @@ export class Game {
       settings: { ...this.settings },
       lastConfig: JSON.parse(JSON.stringify(this.lastConfig)),
       global: { ...this.global },
+      milestones: this.milestones.serialize(),
+      stats: { ...this.stats },
       simTime: this.sim.time,
       factory: this.sim.serialize(),
     };
@@ -329,6 +365,12 @@ export class Game {
     const idx = GLOBAL_UPGRADES.size.values.indexOf(this.sim.width);
     if (idx >= 0) this.global.size = idx + 1;
     this.sim.beltSpeed = BELT.SPEED * this.globalValue('belt');
+    this.milestones = new MilestoneManager();
+    this.milestones.load(s.milestones);
+    // Saves from before milestones existed: estimate delivered cakes from finished orders.
+    const cakes = Number.isFinite(s.stats?.cakes) ? s.stats.cakes
+      : this.orders.completed.reduce((n, c) => n + (getOrderDef(orderIndexById(c.id))?.quantity || 0), 0) + this.orders.delivered;
+    this.stats = { cakes: Math.max(0, Math.floor(cakes)) };
     this.bus.emit('reset');
     return problems;
   }
