@@ -317,3 +317,25 @@ Rotator auto-scrolled to x 152–214 of 390. `npm test` 95/95.
 | Stability | 8.5/10 | tested |
 | Mobile experience | 8.5/10 | tested on 5 device profiles (was 7.5) |
 | CrazyGames suitability | 7.5/10 | tested with mock SDK + device sweep |
+
+---
+
+## Iteration 10 – Long-session stability (soak tests)
+
+**Check.** Browser soak: 6 ovens on 6 belt lines into the station, 2 minutes of real rendering with
+continuous deliveries/rejections, popups and toasts. Snapshots every 30 s after forced GC:
+
+| t | JS heap | DOM nodes | GPU geometries | textures |
+|---|---|---|---|---|
+| 0 s | 23.7 MB | 293 | 99 | 10 |
+| 60 s | 25.0 MB | 293 | 115 | 11 |
+| 120 s | 25.2 MB | 293 | 115 | 11 |
+
+Flat after warm-up, 0 console errors. Headless: 30 minutes of simulation time (new
+`tests/milestones.test.js` case) – income/delivery windows stay trimmed, items on belts do not
+pile up, money never drops without spending.
+
+**Decision.** No leak found → no code change; the soak test stays in the suite as a regression
+guard. 96/96 tests.
+
+**Scores.** Stability 8.5 → 9 (tested).

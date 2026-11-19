@@ -76,3 +76,21 @@ test('machine tips: shown once for a newly needed machine, never after Skip tuto
   const g3 = new Game(); g3.tutorial.skip(); g3.orders.index = 2;
   assert.equal(g3.pendingMachineTip(ids), null, 'skipping the tutorial skips tips');
 });
+
+test('30 minutes of play: bounded memory structures, money only grows, no errors', () => {
+  const g = new Game();
+  g.buildBeltPath([6, 7, 8, 9, 10, 11].map((x) => ({ x, y: 9, dir: DIR.E })));
+  tick(g, 20); // order 1 (plain vanilla) completes and unlocks the froster
+  assert.equal(g.orders.index, 1);
+  assert.ok(g.buildMachine('froster', 8, 9, DIR.E).ok, 'froster dropped onto the belt');
+  let last = g.economy.money;
+  for (let m = 0; m < 30; m++) {
+    tick(g, 60);
+    assert.ok(g.economy.money >= last - 1e-9, 'money never drops without spending');
+    last = g.economy.money;
+  }
+  assert.ok(g.economy._income.length < 200 && g.economy._deliveries.length < 200, 'sliding windows are trimmed');
+  assert.ok(g.sim.counts().items < 40, 'items do not pile up');
+  assert.equal(g.orders.index, 2, 'orders 1 + 2 done; Half Moon needs a cutter');
+  assert.equal(g.stats.cakes, 13);
+});
