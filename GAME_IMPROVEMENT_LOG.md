@@ -376,3 +376,23 @@ Music slider at 0 turns it off; deleting the `startMusic()` call removes it.
 | Stability | 9/10 | tested |
 | Mobile experience | 8.5/10 | tested |
 | CrazyGames suitability | 7.5/10 | tested with mock SDK |
+
+---
+
+## Iteration 12 – Contract balance for long-term play
+
+**Problem.** Repeatable contracts always demanded the same pace for the time bonus (2.2 s per cake
+≈ 27 cakes/min) and paid the same per cake. After a few upgrades the bonus became trivial and
+contracts only got longer, so upgrades stopped mattering.
+
+**Change.** Bonus pace tightens by 0.05 s per contract to a floor of 1.2 s per cake (27 → 50
+cakes/min at contract #21+); pay per cake grows 4 % per contract, capped at ×2. Examples:
+#1 20 cakes / 44 s / $15 · #10 65 / 114 s / $20 · #20 115 / 144 s / $44 · #30 165 / 198 s / $100.
+50/min is reachable with upgraded ovens (level 5 oven ≈ 58/min) and is only needed for the
+optional bonus. Saves are unaffected (a contract in progress keeps its id and progress).
+
+**Files.** `src/gameplay/OrderDefs.js`, `tests/gameplay.test.js`.
+
+**Tests.** New test (pace floor, growth, cap) – 97/97.
+
+**Scores.** Progression 7.5 → 8, Retention 7 → 7.5 (estimates).

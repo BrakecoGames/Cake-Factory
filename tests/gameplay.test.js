@@ -117,3 +117,14 @@ test('removing refunds and running out of money never goes negative', () => {
   assert.equal(g.buildBeltPath([{ x: 0, y: 0, dir: 0 }]).ok, false);
   assert.equal(g.economy.money, 0);
 });
+
+test('contracts: bonus pace tightens to a floor and pay per cake grows, capped', async () => {
+  const { makeContractOrder } = await import('../src/gameplay/OrderDefs.js');
+  const c1 = makeContractOrder(1), c10 = makeContractOrder(10), c60 = makeContractOrder(60);
+  assert.equal(c1.bonus.seconds, Math.round(c1.quantity * 2.2));
+  assert.ok(c10.bonus.seconds / c10.quantity < c1.bonus.seconds / c1.quantity);
+  assert.ok(Math.abs(c60.bonus.seconds / c60.quantity - 1.2) < 0.02, 'pace floor 1.2 s per cake');
+  assert.equal(c1.perCake, 15);
+  assert.ok(makeContractOrder(7).perCake > c1.perCake);
+  assert.ok(c60.perCake <= 2 * 50, 'pay capped at ×2');
+});

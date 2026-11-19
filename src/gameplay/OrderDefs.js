@@ -109,14 +109,18 @@ const CONTRACT_RECIPES = [
 export function makeContractOrder(n) {
   const r = CONTRACT_RECIPES[(n - 1) % CONTRACT_RECIPES.length];
   const quantity = 15 + n * 5;
-  const seconds = Math.round(quantity * 2.2);
+  // The bonus pace tightens slowly (2.2 → 1.2 s per cake) so upgrades keep mattering,
+  // and pay per cake grows a little (up to ×2) so later upgrades stay affordable.
+  const pace = Math.max(1.2, 2.2 - 0.05 * (n - 1));
+  const seconds = Math.round(quantity * pace);
+  const perCake = Math.round(r.value * Math.min(2, 1 + 0.04 * (n - 1)));
   return {
     id: `contract_${n}`,
     name: `${r.name} Contract #${n}`,
     customer: 'Sweet Supply Co.',
     cake: r.cake,
     quantity,
-    perCake: r.value,
+    perCake,
     reward: 300 + n * 150,
     difficulty: 4,
     bonus: { seconds, reward: 200 + n * 60, text: `Deliver all ${quantity} within ${seconds} s` },
