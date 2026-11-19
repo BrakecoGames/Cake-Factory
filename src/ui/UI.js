@@ -117,6 +117,7 @@ export class UI {
 
   showGame() {
     for (const id of ['hud', 'orderPanel', 'toolbarWrap', 'camControls']) $(id).classList.remove('hidden');
+    requestAnimationFrame(() => this._syncToolbarEdges());
     this.refreshOrder();
     this.refreshTutorial();
   }
@@ -164,6 +165,27 @@ export class UI {
       bar.appendChild(b);
       this.toolButtons[t] = b;
     }
+    bar.addEventListener('scroll', () => this._syncToolbarEdges(), { passive: true });
+    window.addEventListener('resize', () => this._syncToolbarEdges());
+  }
+
+  /** Ring a tool button and scroll it into view (phones show only part of the toolbar). */
+  _highlightTool(t) {
+    const b = this.toolButtons[t];
+    b.classList.add('highlight');
+    const bar = $('toolbar');
+    if (bar.scrollWidth > bar.clientWidth) {
+      const left = b.offsetLeft - (bar.clientWidth - b.offsetWidth) / 2;
+      bar.scrollTo({ left, behavior: 'smooth' });
+    }
+  }
+
+  /** Fade the toolbar edges where more tools are hidden off-screen. */
+  _syncToolbarEdges() {
+    const bar = $('toolbar');
+    const more = bar.scrollWidth - bar.clientWidth;
+    bar.classList.toggle('more-left', more > 2 && bar.scrollLeft > 2);
+    bar.classList.toggle('more-right', more > 2 && bar.scrollLeft < more - 2);
   }
 
   _syncTools(tool) {
@@ -504,7 +526,7 @@ export class UI {
     const next = $('tutNext');
     next.classList.toggle('hidden', step.advance !== 'button');
     next.textContent = step.button || 'Next';
-    if (step.highlight?.tool && this.toolButtons[step.highlight.tool]) this.toolButtons[step.highlight.tool].classList.add('highlight');
+    if (step.highlight?.tool && this.toolButtons[step.highlight.tool]) this._highlightTool(step.highlight.tool);
     if (step.id === 'reward' || step.id === 'expand') $('tutSkip').classList.add('hidden'); else $('tutSkip').classList.remove('hidden');
   }
 
@@ -523,7 +545,7 @@ export class UI {
     $('tutSkip').classList.add('hidden');
     $('tutNext').classList.remove('hidden');
     $('tutNext').textContent = 'Got it';
-    if (this.toolButtons[id]) this.toolButtons[id].classList.add('highlight');
+    if (this.toolButtons[id]) this._highlightTool(id);
   }
 
   _updateTutorialHint() {
@@ -594,6 +616,7 @@ export class UI {
         <select id="setQuality">
           ${['auto', 'low', 'medium', 'high'].map((q) => `<option value="${q}" ${s.quality === q ? 'selected' : ''}>${q[0].toUpperCase() + q.slice(1)}</option>`).join('')}
         </select></div>
+      <div class="row"><span>Help</span><button class="btn small" id="setHelp">How to play</button></div>
       <div class="row"><span>Progress</span><button class="btn small danger" id="setReset">Reset progress…</button></div>
       <div class="actions"><button class="btn primary" id="setClose">Done</button></div>
       <div class="copyright">${COPYRIGHT}</div>`);
@@ -601,6 +624,7 @@ export class UI {
     $('setMute').onchange = (e) => { s.muted = e.target.checked; this.onSettingsChange(); };
     $('setQuality').onchange = (e) => { s.quality = e.target.value; this.onSettingsChange(); };
     $('setClose').onclick = () => this.closeModal();
+    $('setHelp').onclick = () => this.openHelp();
     $('setReset').onclick = () => this.confirm('Reset all progress?', 'Your factory, money and orders will be deleted. This cannot be undone.', 'Reset', () => this.onResetProgress());
   }
 

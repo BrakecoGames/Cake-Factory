@@ -281,3 +281,39 @@ keep the modal.
 | Stability | 8.5/10 | tested |
 | Mobile experience | 7.5/10 | tested |
 | CrazyGames suitability | 7/10 | tested with mock SDK |
+
+---
+
+## Iteration 9 – Phone toolbar and HUD on every screen width
+
+**Problem.** On phones only ~5 of 13 tool buttons fit, with no sign that more exist; a highlighted
+tool (e.g. the Rotator in its "how it works" card) could be off-screen. A device sweep showed that
+on 320 px phones (iPhone SE, Galaxy S9+) Settings and Pause were pushed off the screen, and on
+short portrait phones the Reset-view button sat behind the bottom cards.
+
+**Change.**
+- Toolbar: edge fades where tools are hidden (`more-left` / `more-right`, updated on scroll and
+  resize), scroll-snap, and highlighted tools scroll to the centre automatically.
+- ≤480 px: chip shows "Level N 🏆 M" without the logo. ≤360 px: compact HUD buttons, and Help
+  moves into Settings (new "How to play" button there, so nothing becomes unreachable).
+- Short portrait phones (≤760 px high): the two tilt buttons are hidden (three-finger tilt and the
+  other controls remain), so Reset view is always reachable.
+
+**Files.** `src/ui/UI.js`, `src/styles.css`.
+
+**Tests.** Playwright device sweep (iPhone SE, iPhone 13, Pixel 5, Galaxy S9+, iPad Mini): no HUD
+button, panel or card outside the viewport; Reset view above the tutorial card on all phones;
+Rotator auto-scrolled to x 152–214 of 390. `npm test` 95/95.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 7.5/10 | screenshots |
+| Gameplay | 7.5/10 | tested |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 7.5/10 | estimate |
+| Retention potential | 7/10 | estimate |
+| Performance | 7.5/10 | measured |
+| Stability | 8.5/10 | tested |
+| Mobile experience | 8.5/10 | tested on 5 device profiles (was 7.5) |
+| CrazyGames suitability | 7.5/10 | tested with mock SDK + device sweep |
