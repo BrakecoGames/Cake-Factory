@@ -432,3 +432,41 @@ arrived (system-font fallback).
 | Stability | 9/10 | tested |
 | Mobile experience | 8.5/10 | tested |
 | CrazyGames suitability | 8.5/10 | tested: prod build, mock SDK, no external requests |
+
+---
+
+## Iteration 14 – A real choice for every contract
+
+**Problem.** Repeatable contracts rotated through six completely different recipes, so after each
+contract the player had to tear down and rebuild the line – frustrating, and there was no decision
+to make.
+
+**Change.** From contract #2 on, the order panel offers a switch (before the first cake only, so
+no progress can be lost):
+- **New** – the rotation's recipe at full pay (variety, more money), or
+- **Repeat** – the previous contract's recipe at 85 % pay ("same line as last time").
+The choice is saved (`orders.recipe`, `orders.lastRecipe`; optional fields, old saves get the
+rotation). The customer's speech bubble in the shop follows the switch. The generic contract hint
+now only shows on contract #1 (less clutter on phones).
+
+**Files.** `src/gameplay/OrderDefs.js`, `src/gameplay/OrderManager.js`, `src/core/Game.js`,
+`src/ui/UI.js`, `src/rendering/ShopRenderer.js`, `index.html`, `src/styles.css`,
+`tests/gameplay.test.js`.
+
+**Tests.** New test: no offer on contract #1, repeat offered on #2 with lower pay, switching back
+and forth, persisted through save/load, locked after the first cake, never on scripted orders –
+98/98. Browser (desktop + iPhone 13): button switches "Half & Half Contract #2" → "Pink Vanilla
+Contract #2", no errors; tutorial and contract-banner regressions pass.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 8/10 | screenshots |
+| Gameplay | 8/10 | tested (choices added) |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 8/10 | estimate |
+| Retention potential | 8/10 | estimate (was 7.5) |
+| Performance | 8/10 | measured |
+| Stability | 9/10 | tested |
+| Mobile experience | 8.5/10 | tested |
+| CrazyGames suitability | 8.5/10 | tested |

@@ -312,6 +312,13 @@ export class Game {
     return { ok: true, level: lv + 1, cost };
   }
 
+  /** Swap the current contract for the other offer (only before its first cake). */
+  switchContract() {
+    if (!this.orders.switchContract()) return this._fail('This contract can no longer be switched');
+    this.requestSave();
+    return { ok: true, order: this.orders.current };
+  }
+
   rotateEntity(id) {
     const e = this.sim.entities.get(id);
     if (!e) return { ok: false };

@@ -379,7 +379,11 @@ export class ShopRenderer {
         c.group.rotation.y = Math.PI;
         this._idle(c);
         const turned = Math.abs((c.shownAz ?? 0) - (this.fr.camAzimuth ?? 0)) > 0.05;
-        if ((c.shownDelivered !== this.game.orders.delivered || turned) && c.order.id === this.game.orders.current.id) this._setBubble(c);
+        const cur = this.game.orders.current;
+        // A switched contract keeps its id but asks for another cake.
+        const switched = c.order.id === cur.id && c.order.cake !== cur.cake;
+        if (switched) c.order = cur;
+        if ((c.shownDelivered !== this.game.orders.delivered || turned || switched) && c.order.id === cur.id) this._setBubble(c);
       } else if (c.state === 'collect') {
         c.group.rotation.y = Math.PI;
         this._idle(c);

@@ -222,6 +222,12 @@ export class UI {
       this.input.rot = this.game.sim.entities.get(id)?.rot ?? 0;
     });
     $('inspRemove').addEventListener('click', () => this.input.removeSelected());
+    $('orderSwitch').addEventListener('click', () => {
+      const r = this.game.switchContract();
+      this.audio.play(r.ok ? 'click' : 'invalid');
+      if (r.ok) this.toast(`Contract switched: ${r.order.name}`, 'good');
+      this.refreshOrder();
+    });
     $('orderCake').addEventListener('click', () => this.openCakeInspector(this._orderCake, `Order: ${this.game.orders.current.name}`, true));
     $('inspCake').addEventListener('click', () => { if (this._inspCakeObj) this.openCakeInspector(this._inspCakeObj, 'Cake inspector', false); });
     $('inspConfig').addEventListener('click', (ev) => {
@@ -389,8 +395,12 @@ export class UI {
   refreshOrder() {
     const om = this.game.orders;
     const o = om.current;
-    if (this._orderId !== o.id) {
-      this._orderId = o.id;
+    const sw = $('orderSwitch');
+    const alt = om.alternative;
+    sw.classList.toggle('hidden', !alt);
+    if (alt) sw.innerHTML = `⇄ <b>${alt.repeat ? 'Repeat' : 'New'}:</b> ${alt.name.replace(/ Contract #\d+$/, '')} · $${alt.perCake}/cake${alt.repeat ? ' <small>(same line as last time)</small>' : ''}`;
+    if (this._orderId !== o.id + o.cake) {
+      this._orderId = o.id + o.cake;
       this._orderCake = parseCakeKey(o.cake);
       $('orderPanel').classList.remove('pulse'); void $('orderPanel').offsetWidth; $('orderPanel').classList.add('pulse');
     }

@@ -102,18 +102,32 @@ const CONTRACT_RECIPES = [
   { name: 'Four Flavors', cake: ORDER_DEFS[7].cake, value: 50 },
 ];
 
+/** Recipe index the rotation offers for contract n. */
+export const contractRecipeIndex = (n) => (n - 1) % CONTRACT_RECIPES.length;
+export const contractRecipeName = (i) => CONTRACT_RECIPES[i]?.name ?? null;
+
+/** Pay factor for repeating the previous contract's recipe (the line already exists). */
+export const REPEAT_PAY = 0.85;
+
 /**
  * After the scripted orders run out, repeatable contracts keep the factory
  * busy. They cycle through recipes and scale so optimisation pays off.
  */
-export function makeContractOrder(n) {
-  const r = CONTRACT_RECIPES[(n - 1) % CONTRACT_RECIPES.length];
+/**
+ * @param {number} n contract number (1-based)
+ * @param {number} [recipe] recipe index; defaults to the rotation. A recipe other
+ *   than the rotation's is a "repeat" and pays REPEAT_PAY.
+ */
+export function makeContractOrder(n, recipe = contractRecipeIndex(n)) {
+  const repeat = recipe !== contractRecipeIndex(n);
+  const r = CONTRACT_RECIPES[recipe] ?? CONTRACT_RECIPES[contractRecipeIndex(n)];
   const quantity = 15 + n * 5;
   // The bonus pace tightens slowly (2.2 → 1.2 s per cake) so upgrades keep mattering,
   // and pay per cake grows a little (up to ×2) so later upgrades stay affordable.
   const pace = Math.max(1.2, 2.2 - 0.05 * (n - 1));
   const seconds = Math.round(quantity * pace);
-  const perCake = Math.round(r.value * Math.min(2, 1 + 0.04 * (n - 1)));
+  const pay = repeat ? REPEAT_PAY : 1;
+  const perCake = Math.round(r.value * Math.min(2, 1 + 0.04 * (n - 1)) * pay);
   return {
     id: `contract_${n}`,
     name: `${r.name} Contract #${n}`,
@@ -121,18 +135,19 @@ export function makeContractOrder(n) {
     cake: r.cake,
     quantity,
     perCake,
-    reward: 300 + n * 150,
+    reward: Math.round((300 + n * 150) * pay),
+    recipe, repeat,
     difficulty: 4,
     bonus: { seconds, reward: 200 + n * 60, text: `Deliver all ${quantity} within ${seconds} s` },
-    hint: 'Repeatable contract. Upgrade machines (U) and buy Bakery Upgrades (⬆) to beat the timer.',
+    hint: n === 1 ? 'Repeatable contract. Upgrade machines (U) and buy Bakery Upgrades (⬆) to beat the timer.' : '',
     unlocks: {},
     purpose: 'Repeatable contract.',
   };
 }
 
-export function getOrderDef(index) {
+export function getOrderDef(index, recipe) {
   if (index < ORDER_DEFS.length) return ORDER_DEFS[index];
-  return makeContractOrder(index - ORDER_DEFS.length + 1);
+  return makeContractOrder(index - ORDER_DEFS.length + 1, recipe ?? undefined);
 }
 
 /**
