@@ -120,6 +120,8 @@ async function boot() {
       const [w, h] = e.size;
       for (const [gx, gy] of [[e.x, e.y], [e.x + w, e.y], [e.x, e.y + h], [e.x + w, e.y + h]]) pts.push(fr.gridToWorld(gx, gy, 0), fr.gridToWorld(gx, gy, 1.4));
     }
+    // During the tutorial the customer at the Cake Shop counter is part of the story: keep it in view.
+    if (game.tutorial.active) { const c = fr.shop.standPos; pts.push(c.clone(), c.clone().setY(2.6)); }
     camera.setBounds(game.sim.width / 2, game.sim.height / 2);
     // Extra margin (in cells) so the line between the machines is easy to hit.
     const grow = 1.5, mid = pts.reduce((a, p) => a.add(p), pts[0].clone().multiplyScalar(0)).multiplyScalar(1 / Math.max(1, pts.length));

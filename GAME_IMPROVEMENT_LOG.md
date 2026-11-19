@@ -525,3 +525,40 @@ order complete, save reload. Portrait sweep (5 devices) and desktop tutorial reg
 | Stability | 9/10 | tested |
 | Mobile experience | 9/10 | tested portrait + landscape (landscape was ~2/10) |
 | CrazyGames suitability | 8.5/10 | tested |
+
+---
+
+## Iteration 17 – The 960×540 CrazyGames frame and other desktop sizes
+
+**Problem (size sweep 960×540, 1024×576, 800×600, 1280×720, 1920×1080).** CrazyGames shows desktop
+games in a frame of about 960×540. There the camera buttons overlapped the toolbar (Reset view
+hidden), the Delete tool was cut off, the order panel clipped its progress bar and the centred
+tutorial card left only a thin strip for the factory, so machines were tiny. The customer the
+tutorial talks about was outside the view on several sizes.
+
+**Change.**
+- Layout for landscape screens 501–760 px high: tutorial as a card on the left, compact horizontal
+  order card on the right, slightly smaller toolbar, camera buttons above the toolbar (tilt
+  buttons hidden; middle-mouse drag and Page Up/Down still tilt), inspector and toasts above the
+  toolbar.
+- While the tutorial runs, the camera frame includes the customer at the Cake Shop counter.
+
+**Files.** `src/styles.css`, `src/main.js`.
+
+**Tests.** Size sweep: no overlaps and nothing off-screen at 960×540, 1024×576, 1280×720,
+1920×1080 (800×600 only scrolls the last tool inside the faded toolbar, by design); oven and
+station never covered. Landscape/portrait phone sweeps and the iPhone 13 touch tutorial still pass.
+`npm test` 99/99. Screenshots checked.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 8.5/10 | screenshots at the CrazyGames frame size |
+| Gameplay | 8/10 | tested |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8.5/10 | tested |
+| Progression | 8/10 | estimate |
+| Retention potential | 8/10 | estimate |
+| Performance | 8/10 | measured |
+| Stability | 9/10 | tested |
+| Mobile experience | 9/10 | tested |
+| CrazyGames suitability | 9/10 | tested at frame size, prod build, mock SDK |

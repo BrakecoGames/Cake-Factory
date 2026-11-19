@@ -422,3 +422,33 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
   /* Touch: pinch, twist and drag do everything the camera buttons do. */
   #camControls { display: none !important; }
 }
+
+/* ------------------------------------------------ medium-height landscape (e.g. the 960×540 CrazyGames frame) */
+@media (orientation: landscape) and (min-height: 501px) and (max-height: 760px) {
+  #tutorial { top: 76px; left: 14px; transform: none; width: min(340px, 34vw); min-width: 0; animation: none; max-height: calc(100vh - 76px - 110px); overflow-y: auto; }
+  #orderPanel { top: 66px; bottom: auto; left: auto; right: 10px; width: 230px; padding: 9px 11px; max-height: calc(100vh - 66px - 250px - var(--safe-b)); }
+  #orderPanel .order-head { position: absolute; top: 7px; right: 8px; }
+  #orderPanel .order-kicker { display: none; }
+  .order-body { display: grid; grid-template-columns: 62px 1fr; column-gap: 9px; align-items: center; }
+  .order-cake { grid-column: 1; grid-row: 1 / span 4; margin: 0; padding: 2px; }
+  #orderCake { width: 58px; height: 58px; }
+  .order-desc { display: none; }
+  .order-name, .order-customer, .progress, .order-rewards { grid-column: 2; }
+  .order-name { font-size: 16px; padding-right: 26px; line-height: 1.15; margin: 0; }
+  .order-customer { font-size: 11.5px; }
+  .progress { height: 18px; margin-top: 3px; }
+  .progress-text { line-height: 18px; font-size: 12px; }
+  .order-rewards { margin-top: 3px; font-size: 12px; }
+  .order-rewards > div { display: flex; gap: 3px; align-items: baseline; }
+  .order-rewards .lbl { display: inline; font-size: 10px; }
+  .bonus, .order-last, .order-hint, .order-switch { grid-column: 1 / -1; font-size: 12px; margin-top: 6px; }
+  .tool { width: 58px; min-width: 58px; height: 66px; font-size: 11px; border-radius: 14px; }
+  .tool svg { width: 28px; height: 28px; }
+  #toolbar { padding: 6px; gap: 5px; }
+  #camControls { top: auto; bottom: calc(104px + var(--safe-b)); right: 10px; grid-template-columns: 1fr 1fr; }
+  .cam-btn, .cam-btn.wide { width: 40px; height: 40px; }
+  .cam-btn.wide { grid-column: span 2; width: auto; }
+  #camTiltUp, #camTiltDown { display: none; }
+  #inspector { bottom: calc(96px + var(--safe-b)); max-height: calc(100vh - 76px - 110px); overflow-y: auto; }
+  #toasts { bottom: calc(100px + var(--safe-b)); }
+}
