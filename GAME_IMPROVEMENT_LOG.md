@@ -562,3 +562,20 @@ station never covered. Landscape/portrait phone sweeps and the iPhone 13 touch t
 | Stability | 9/10 | tested |
 | Mobile experience | 9/10 | tested |
 | CrazyGames suitability | 9/10 | tested at frame size, prod build, mock SDK |
+
+---
+
+## Iteration 18 – Modals on short screens
+
+**Problem.** On a phone held sideways (342 px high) the "Order completed!" card was taller than
+the screen: the Continue button sat below the fold (the card scrolled). The start card and cake
+inspector were also oversized there; "PER CAKE" wrapped in the narrow order card.
+
+**Change.** For screens ≤500 px high: compact modal padding/headings, smaller cake pictures in the
+celebration and cake inspector, tighter unlock list, smaller start card. Order reward labels
+never wrap.
+
+**Files.** `src/styles.css`.
+
+**Tests.** Celebration modal on iPhone 13 landscape: Continue fully visible, no scrolling (was
+hidden); 960×540 unchanged. Landscape and desktop size sweeps still clean. `npm test` 99/99.
