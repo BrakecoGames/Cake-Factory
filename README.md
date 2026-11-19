@@ -167,6 +167,16 @@ game only through `Game` actions (`buildMachine`, `buildBeltPath`, `removeEntity
 - A cake on a replaced belt goes into the machine's matching input when possible; otherwise it is
   discarded with the usual poof + toast. Moving a machine onto belts works the same way.
 
+## Improvement loop (see GAME_IMPROVEMENT_LOG.md)
+- Camera frames the factory into the screen area the panels leave free; dedicated layouts for
+  phones (portrait and landscape), the 960×540 CrazyGames frame and desktop.
+- 18 milestones with rewards (level chip → Milestones panel); "how it works" cards for the
+  Cutter, Combiner and Rotator; clearer rejection reasons and cake descriptions.
+- Contracts: pace and pay scale over time, choice between a new recipe and repeating the last one,
+  non-blocking celebration banner.
+- CrazyGames SDK v3 adapter, self-hosted font (no external requests), procedural background music
+  with its own slider.
+
 ## Known limitations (honest status)
 - Rendering was **not** verified in a real GPU browser in this session (no network for Three.js
   in the build sandbox). Logic, UI flows, save/reload were verified headless with a Three.js stub,

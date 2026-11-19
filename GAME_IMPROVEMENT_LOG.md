@@ -579,3 +579,55 @@ never wrap.
 
 **Tests.** Celebration modal on iPhone 13 landscape: Continue fully visible, no scrolling (was
 hidden); 960×540 unchanged. Landscape and desktop size sweeps still clean. `npm test` 99/99.
+
+---
+
+## Iteration 19 – Final regression and stop
+
+**Full regression.** 99/99 unit/integration tests; both production builds; production browser
+test (desktop, Pixel 5, CrazyGames build with mock SDK): no errors, no external requests, font
+loaded, boot 1.3–2.4 s; scripted play of orders 1→3 with real clicks; machine tips; contract
+switch; milestones; contract banner; pre-loop save in the browser; mocked SDK lifecycle +
+cloud save; SDK load failure → standalone fallback. All passed.
+
+**Stop condition reached.** The remaining improvements need human input or real hardware rather
+than more code here:
+1. Upload `npm run build:crazygames` to the CrazyGames developer QA tool (real SDK, ads policy).
+2. Measure real FPS on a mid-range phone (only software rendering was available here; draw calls
+   and sim time were measured instead).
+3. Listen to the background music and decide whether it stays.
+4. Watch a few new players: are the Cutter/Combiner cards enough for the Half & Half and
+   Four Flavors orders?
+
+## Summary of the loop
+
+| # | Improvement | Evidence |
+|---|---|---|
+| 1 | Camera frames the factory into the free screen area; compact phone layout | touch tutorial on iPhone went from impossible to complete |
+| 2 | Console warning + oven panel flavor text | 0 warnings |
+| 3 | CrazyGames SDK v3 adapter with safe fallback and save migration | 5 unit tests, mock-SDK browser test |
+| 4 | Big-factory check (385 draw calls / 70 machines); order panel height cap | stress test |
+| 5 | 18 milestones with rewards | 4 tests, browser |
+| 6 | Clear rejection reasons, readable cake descriptions, machine "how it works" cards | 3 tests, browser |
+| 7 | Verified Cutter order is buildable by clicks | scripted play |
+| 8 | Non-blocking contract celebration | browser |
+| 9 | Phone toolbar fades + auto-scroll; HUD fits 320 px | 5-device sweep |
+| 10 | Soak tests: no leaks (2 min browser, 30 min sim) | memory snapshots |
+| 11 | Background music + slider | offline render levels |
+| 12 | Contract pace/pay scaling | test |
+| 13 | Self-hosted font, production build verified | 0 external requests, boot 4.5 → 2.3 s |
+| 14 | Contract choice: new recipe vs repeat | test + browser |
+| 15 | Proof that pre-loop saves still load | fixture test + browser |
+| 16 | Playable landscape-phone layout | 3-device sweep + touch tutorial |
+| 17 | 960×540 CrazyGames frame layout; customer in view | 5-size sweep |
+| 18 | Compact modals on short screens | browser |
+| 19 | Final regression | all green |
+
+**Score change (start → end).** First impression 6 → 8.5 · Gameplay 7 → 8 · Visual 8 → 8 ·
+Usability 6.5 → 8.5 · Progression 6 → 8 · Retention 5 → 8 · Performance 7 → 8 · Stability 8 → 9 ·
+Mobile 3 → 9 · CrazyGames suitability 5 → 9. Mobile, stability, performance and CrazyGames scores
+are based on tests; gameplay/progression/retention remain expert estimates until real players
+have played.
+
+**Saves.** Format stays v4; every new field is optional; a save made by the original version is a
+permanent test fixture. No user data was removed.
