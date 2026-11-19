@@ -339,3 +339,40 @@ pile up, money never drops without spending.
 guard. 96/96 tests.
 
 **Scores.** Stability 8.5 → 9 (tested).
+
+---
+
+## Iteration 11 – Background music
+
+**Problem.** Only short synthesized effects; long building sessions were silent, which feels
+unfinished next to other CrazyGames titles.
+
+**Change.** `AudioManager.startMusic()` – a gentle procedural music-box loop (no audio files, no
+new dependencies): I–vi–IV–V in C at 92 bpm, soft bass, quiet arpeggio and an 8-bar pentatonic
+melody through a low-pass filter. Notes are scheduled 0.5 s ahead on the audio clock (frame-rate
+independent) and resume cleanly after a tab suspend. It starts with Play, routes through the
+master bus (so Mute and the CrazyGames `muteAudio` setting silence it too) and has its own
+**Music** slider in Settings (new `settings.music`, default 0.5; older saves get the default).
+"Sound volume" is now "Volume" (master).
+
+**Files.** `src/audio/AudioManager.js`, `src/core/Game.js`, `src/main.js`, `src/ui/UI.js`.
+
+**Tests.** Browser: 24 oscillators scheduled in the first 3 s after Play, no errors. Offline
+render of 16 s at maximum volume: peak 0.114, RMS 0.014 – no clipping, sits below the effects
+(first render was too quiet at peak 0.066 → bus gain raised). `npm test` 96/96.
+
+**Not tested.** How it *sounds* – no human listening was possible here. If it is not liked, the
+Music slider at 0 turns it off; deleting the `startMusic()` call removes it.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 8/10 | estimate (music + screenshots) |
+| Gameplay | 7.5/10 | tested |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 7.5/10 | estimate |
+| Retention potential | 7/10 | estimate |
+| Performance | 7.5/10 | measured |
+| Stability | 9/10 | tested |
+| Mobile experience | 8.5/10 | tested |
+| CrazyGames suitability | 7.5/10 | tested with mock SDK |

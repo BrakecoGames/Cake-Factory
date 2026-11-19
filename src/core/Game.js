@@ -19,7 +19,7 @@ import { ORDER_DEFS, unlocksAfter, getOrderDef, orderIndexById } from '../gamepl
 import { CONFIG_OPTIONS, ROTATOR_MODE_LEVEL } from '../machines/MachineDefs.js';
 import { FLAVORS, FROSTINGS } from '../cakes/CakeModel.js';
 
-export const DEFAULT_SETTINGS = Object.freeze({ volume: 0.7, muted: false, quality: 'auto' });
+export const DEFAULT_SETTINGS = Object.freeze({ volume: 0.7, music: 0.5, muted: false, quality: 'auto' });
 
 export class Game {
   constructor() {

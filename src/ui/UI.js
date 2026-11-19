@@ -610,7 +610,8 @@ export class UI {
     const s = this.game.settings;
     this.openModal(`
       <h2>Settings</h2>
-      <div class="row"><span>Sound volume</span><input type="range" id="setVol" min="0" max="1" step="0.05" value="${s.volume}"></div>
+      <div class="row"><span>Volume</span><input type="range" id="setVol" min="0" max="1" step="0.05" value="${s.volume}"></div>
+      <div class="row"><span>Music</span><input type="range" id="setMusic" min="0" max="1" step="0.05" value="${s.music ?? 0.5}"></div>
       <div class="row"><span>Mute</span><input type="checkbox" id="setMute" ${s.muted ? 'checked' : ''}></div>
       <div class="row"><span>Graphics quality</span>
         <select id="setQuality">
@@ -621,6 +622,7 @@ export class UI {
       <div class="actions"><button class="btn primary" id="setClose">Done</button></div>
       <div class="copyright">${COPYRIGHT}</div>`);
     $('setVol').oninput = (e) => { s.volume = Number(e.target.value); this.onSettingsChange(); };
+    $('setMusic').oninput = (e) => { s.music = Number(e.target.value); this.onSettingsChange(); };
     $('setMute').onchange = (e) => { s.muted = e.target.checked; this.onSettingsChange(); };
     $('setQuality').onchange = (e) => { s.quality = e.target.value; this.onSettingsChange(); };
     $('setClose').onclick = () => this.closeModal();

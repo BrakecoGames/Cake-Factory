@@ -126,6 +126,7 @@ async function boot() {
 
   const applySettings = () => {
     audio.setVolume(game.settings.volume);
+    audio.setMusic(game.settings.music ?? 0.5);
     audio.setMuted(game.settings.muted || platform.muteAudio);
   };
   platform.onSettingsChange(() => applySettings());
@@ -204,6 +205,7 @@ async function boot() {
   const begin = () => {
     audio.unlock();
     audio.play('click');
+    audio.startMusic();
     $('startScreen').classList.add('hidden');
     ui.showGame();
     started = true;

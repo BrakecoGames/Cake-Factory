@@ -11,7 +11,9 @@ export class AudioManager {
     this.master = null;
     this.volume = 0.7;
     this.muted = false;
+    this.musicLevel = 0.5;
     this._last = {};
+    this._music = null; // { bus, filter, timer, next, step }
   }
 
   /** Call from a user gesture (click/tap/key). Safe to call repeatedly. */
@@ -34,7 +36,76 @@ export class AudioManager {
 
   setVolume(v) { this.volume = Math.max(0, Math.min(1, v)); this._applyVolume(); }
   setMuted(m) { this.muted = !!m; this._applyVolume(); }
-  _applyVolume() { if (this.master) this.master.gain.value = this.muted ? 0 : this.volume * 0.5; }
+  _applyVolume() {
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume * 0.5;
+    if (this._music) this._music.bus.gain.value = this.musicLevel * 0.6;
+  }
+
+  setMusic(level) { this.musicLevel = Math.max(0, Math.min(1, level)); this._applyVolume(); }
+
+  // ------------------------------------------------------------- music
+  /**
+   * Gentle procedural music-box loop (no audio files): I–vi–IV–V in C,
+   * 92 bpm, soft bass + arpeggio + an 8-bar pentatonic melody. Scheduled
+   * slightly ahead on the audio clock, so timing never depends on frame rate.
+   */
+  startMusic() {
+    const c = this.ctx;
+    if (!c || this._music) return;
+    const bus = c.createGain();
+    const filter = c.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 2400; filter.Q.value = 0.3;
+    bus.connect(filter); filter.connect(this.master);
+    this._music = { bus, filter, next: c.currentTime + 0.15, step: 0, timer: 0 };
+    this._applyVolume();
+    this._music.timer = setInterval(() => this._scheduleMusic(), 120);
+    this._scheduleMusic();
+  }
+
+  stopMusic() {
+    if (!this._music) return;
+    clearInterval(this._music.timer);
+    try { this._music.filter.disconnect(); } catch { /* ignore */ }
+    this._music = null;
+  }
+
+  _mnote(freq, t, dur, vol, type = 'sine') {
+    const c = this.ctx, m = this._music;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(m.bus);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  _scheduleMusic() {
+    const c = this.ctx, m = this._music;
+    if (!c || !m || c.state !== 'running') { if (m && c) m.next = Math.max(m.next, c.currentTime + 0.1); return; }
+    const E = 60 / 92 / 2; // eighth note
+    const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
+    // Chords as MIDI notes (C, Am, F, G), two bars each round of 8 bars.
+    const CHORDS = [[48, 60, 64, 67], [45, 57, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62]];
+    const MELODY = [ // 8 bars × 8 eighths, 0 = rest (C-major pentatonic)
+      76, 0, 79, 0, 76, 74, 72, 0, 72, 0, 74, 76, 0, 0, 0, 0,
+      77, 0, 76, 0, 74, 0, 72, 0, 74, 0, 0, 72, 74, 0, 0, 0,
+      76, 0, 79, 0, 81, 0, 79, 76, 72, 0, 74, 0, 76, 0, 0, 0,
+      77, 76, 74, 0, 72, 0, 74, 0, 71, 0, 72, 0, 74, 0, 0, 0,
+    ];
+    if (m.next < c.currentTime) m.next = c.currentTime + 0.05; // after a suspend
+    while (m.next < c.currentTime + 0.5) {
+      const t = m.next, step = m.step;
+      const bar = Math.floor(step / 8) % 8, e = step % 8;
+      const ch = CHORDS[Math.floor(bar / 2) % 4];
+      if (e === 0 || e === 4) this._mnote(hz(ch[0]), t, E * 3.5, 0.22, 'sine');
+      // Soft arpeggio on every eighth.
+      this._mnote(hz(ch[1 + (e % 3)] + 12), t, E * 1.6, 0.05, 'triangle');
+      const mel = MELODY[(bar * 8 + e) % MELODY.length];
+      if (mel) this._mnote(hz(mel), t, E * 2.8, 0.11, 'sine');
+      m.next += E; m.step++;
+    }
+  }
 
   _tone(freq, dur, { type = 'sine', vol = 0.4, slide = 0, delay = 0 } = {}) {
     const c = this.ctx;
