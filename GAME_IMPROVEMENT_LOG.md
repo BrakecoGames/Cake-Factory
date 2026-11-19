@@ -489,3 +489,39 @@ $47,875", 🏆 6, "Sunrise Contract #3 · 7 / 30", no errors.
 **Change.** The late-game save is kept as `tests/fixtures/save-v4-before-improvements.json` with a
 permanent regression test in `tests/save.test.js` – 99/99. Save format stays v4 (all new fields
 optional), so no migration step was needed.
+
+---
+
+## Iteration 16 – Phones held sideways (short landscape)
+
+**Problem (found by a landscape device sweep).** On iPhone 13 / Pixel 5 / iPhone SE in landscape
+(293–342 px high) the tutorial card, order panel, toolbar and camera buttons overlapped and covered
+the whole factory: the oven and the station were hidden behind the tutorial text, Reset view was
+off-screen. The game was effectively unplayable sideways – a common orientation on CrazyGames mobile.
+
+**Change.** A dedicated layout for `landscape and max-height ≤ 500px`: compact HUD; tutorial as a
+narrow card on the left; compact order card on the right (picture + name + progress); smaller
+toolbar; inspector/toasts above the toolbar; camera buttons reduced to zoom + reset, and hidden on
+touch screens (pinch/twist/drag cover them). `UI.freeRect()` now treats narrow panels against a
+screen edge (incl. the tutorial card) as side panels, so the camera frames the factory in the
+middle gap. Centred cards (desktop tutorial) still count as top panels.
+
+**Files.** `src/styles.css`, `src/ui/UI.js`.
+
+**Tests.** Landscape sweep (3 devices): no panel overlaps, nothing off-screen, oven and station
+not covered. Full tutorial with touch on iPhone 13 landscape: belt dragged, first cake 3.2 s later,
+order complete, save reload. Portrait sweep (5 devices) and desktop tutorial regression unchanged.
+`npm test` 99/99.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 8/10 | screenshots |
+| Gameplay | 8/10 | tested |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8.5/10 | tested |
+| Progression | 8/10 | estimate |
+| Retention potential | 8/10 | estimate |
+| Performance | 8/10 | measured |
+| Stability | 9/10 | tested |
+| Mobile experience | 9/10 | tested portrait + landscape (landscape was ~2/10) |
+| CrazyGames suitability | 8.5/10 | tested |

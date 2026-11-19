@@ -135,8 +135,10 @@ export class UI {
       const box = id === 'hud' ? el.querySelector('.hud-center') || el : el;
       const q = box.getBoundingClientRect();
       if (!q.width || !q.height) continue;
-      const sideable = id === 'orderPanel' || id === 'camControls' || id === 'inspector';
-      if (sideable && q.width < W * 0.3) {
+      // Narrow panels against a side edge shrink the free area horizontally.
+      const atEdge = q.left < W * 0.1 || q.right > W * 0.9;
+      const sideable = id === 'orderPanel' || id === 'camControls' || id === 'inspector' || id === 'tutorial';
+      if (sideable && atEdge && q.width < W * 0.42) {
         if (q.left + q.width / 2 > W / 2) r = Math.min(r, q.left); else l = Math.max(l, q.right);
       } else if (q.top + q.height / 2 < H / 2) t = Math.max(t, q.bottom);
       else b = Math.min(b, q.top);
