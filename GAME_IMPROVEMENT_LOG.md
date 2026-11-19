@@ -396,3 +396,39 @@ optional bonus. Saves are unaffected (a contract in progress keeps its id and pr
 **Tests.** New test (pace floor, growth, cap) – 97/97.
 
 **Scores.** Progression 7.5 → 8, Retention 7 → 7.5 (estimates).
+
+---
+
+## Iteration 13 – Production build verified; self-hosted font
+
+**Check.** Built `npm run build` and `npm run build:crazygames`, served the static output and
+played it without the debug hooks (desktop 1280×720, Pixel 5; CrazyGames build with a mocked
+SDK). No console errors, debug overlay and `window.__cakeFactory` absent in production, SDK
+lifecycle `loadingStart → loadingStop → gameplayStart`.
+
+**Problem found.** The only external requests were Google Fonts (fonts.googleapis.com /
+fonts.gstatic.com): a privacy/GDPR concern for EU players, an extra round-trip on boot, and a
+broken look where that domain is blocked. The 3D canvas signs could also be drawn before the font
+arrived (system-font fallback).
+
+**Change.** Fredoka (SIL OFL 1.1, licence file included) self-hosted as two variable woff2 files
+(latin 29.7 KB + latin-ext 4.6 KB) with `@font-face` + preload; Google Fonts links removed;
+`main.js` waits for the font (max 1.5 s) before the renderer draws its canvas signs.
+
+**Files.** `index.html`, `src/styles.css`, `src/main.js`, `src/fonts/` (new: 2 woff2 + OFL licence).
+
+**Tests.** Production browser test: 0 external requests, font status "loaded", boot to Play
+2.3 s (was 4.5 s) desktop / 1.4 s mobile, no errors, both builds. `npm test` 97/97.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 8/10 | screenshots |
+| Gameplay | 7.5/10 | tested |
+| Visual quality | 8/10 | screenshots |
+| Usability | 8/10 | tested |
+| Progression | 8/10 | estimate |
+| Retention potential | 7.5/10 | estimate |
+| Performance | 8/10 | measured (boot time, draw calls) |
+| Stability | 9/10 | tested |
+| Mobile experience | 8.5/10 | tested |
+| CrazyGames suitability | 8.5/10 | tested: prod build, mock SDK, no external requests |

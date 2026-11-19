@@ -74,6 +74,11 @@ async function boot() {
   }
   const [{ SceneManager, detectQuality }, { CameraController }, { FactoryRenderer }, { InputController }] = THREEmods;
 
+  // 3D signs are drawn on canvases once: make sure the brand font is ready (max 1.5 s).
+  try {
+    await Promise.race([document.fonts?.load('bold 40px "Fredoka"'), new Promise((r) => setTimeout(r, 1500))]);
+  } catch { /* system font fallback */ }
+
   let sm;
   try {
     sm = new SceneManager($('viewport'));
