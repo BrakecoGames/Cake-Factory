@@ -91,3 +91,20 @@ test('concurrent saves are coalesced and the newest state wins', async () => {
   await Promise.all([p1, p2]);
   assert.equal(JSON.parse(st.m.get(SAVE.STORAGE_KEY)).economy.money, 777);
 });
+
+test('a save written by the game before the improvement loop still loads and plays', async () => {
+  const fs = await import('node:fs');
+  const raw = fs.readFileSync(new URL('./fixtures/save-v4-before-improvements.json', import.meta.url), 'utf8');
+  const sm = new SaveManager({ getItem: async () => raw, setItem: async () => {}, removeItem: async () => {} });
+  const res = await sm.loadGame();
+  assert.ok(res.ok, res.reason);
+  const g = new Game();
+  assert.deepEqual(g.loadState(res.state), []);
+  assert.equal(g.orders.current.id, 'contract_3');
+  assert.equal(g.orders.delivered, 7);
+  assert.equal(g.sim.width, 24);
+  assert.equal(g.global.belt, 2);
+  assert.equal(g.settings.music, 0.5, 'new settings get defaults');
+  for (let i = 0; i < 5 * SIM.TICK_RATE; i++) g.fixedUpdate();
+  assert.ok(g.milestones.count > 0, 'deserved milestones are granted');
+});

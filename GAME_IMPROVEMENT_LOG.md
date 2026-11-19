@@ -470,3 +470,22 @@ Contract #2", no errors; tutorial and contract-banner regressions pass.
 | Stability | 9/10 | tested |
 | Mobile experience | 8.5/10 | tested |
 | CrazyGames suitability | 8.5/10 | tested |
+
+---
+
+## Iteration 15 – Proof that existing saves survive every change
+
+**Check.** Rule 2 (keep savegames). Created saves with the **original code** (git worktree of tag
+`pre-improvement-loop`): an early-game save (tutorial running, one line) and a late-game save
+(contract #3 with 7/30 delivered, factory expanded to 24×24, faster belts, a level-3 oven,
+10 completed orders). Loaded both with the current code.
+
+**Results.** No validation or load problems; money, order, progress, factory size, global
+upgrades and machines identical; new fields get defaults (music 0.5, no seen tips, cakes estimated
+from orders); deserved milestones (6) granted on the first check; re-saving and reloading is
+lossless. Browser: the old save in localStorage shows "Continue · Welcome back! Level 11 ·
+$47,875", 🏆 6, "Sunrise Contract #3 · 7 / 30", no errors.
+
+**Change.** The late-game save is kept as `tests/fixtures/save-v4-before-improvements.json` with a
+permanent regression test in `tests/save.test.js` – 99/99. Save format stays v4 (all new fields
+optional), so no migration step was needed.
