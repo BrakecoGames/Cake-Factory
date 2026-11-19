@@ -45,4 +45,7 @@ export class StandaloneAdapter {
   loadingStop() {}
   gameplayStart() {}
   gameplayStop() {}
+  happytime() {}
+  get muteAudio() { return false; }
+  onSettingsChange() {}
 }

@@ -12,6 +12,7 @@ npm install          # three 0.160.0 + vite
 npm run dev          # http://localhost:5173
 npm test             # 82 deterministic simulation / gameplay / save tests (no deps needed)
 npm run build        # static build → dist/ (index.html + assets/), relative paths
+npm run build:crazygames  # same, but boots with the CrazyGames SDK v3 adapter
 npm run preview      # serve dist/ to check the production build
 ```
 
@@ -20,6 +21,15 @@ Three.js from jsDelivr. The Vite build strips that import map and bundles Three.
 
 Debug overlay (FPS, sim time, machines, items, belts, draw calls, save status):
 `npm run dev` only (disabled in production builds). Without Vite, append `#debug` to the URL.
+
+## Platforms
+- `StandaloneAdapter` – localStorage (memory fallback). Default.
+- `CrazyGamesAdapter` – loads the CrazyGames SDK v3, calls `loadingStart/Stop`,
+  `gameplayStart/Stop` (pause, tab hidden) and `happytime` (order completed), honours the
+  platform's `muteAudio` setting and saves through the SDK data module. Reads fall back to
+  localStorage so earlier saves are kept. Chosen by `npm run build:crazygames`, on
+  `*.crazygames.*` domains or with `?platform=crazygames`. If the SDK cannot load or is
+  disabled, the game continues with the standalone adapter.
 
 ## Architecture
 

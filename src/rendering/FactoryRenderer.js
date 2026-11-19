@@ -153,7 +153,7 @@ export class FactoryRenderer {
         shelf.position.set(i, 1.3, 0.3); g.add(shelf);
         const colors = [PALETTE.pink, PALETTE.mint, PALETTE.vanilla, PALETTE.sky, PALETTE.lavender];
         for (let j = 0; j < 3; j++) {
-          const jar = new THREE.Mesh(cylinder(0.13, 0.13, 0.3, 14), mat(colors[(Math.abs(i) + j) % colors.length], { roughness: 0.3 }));
+          const jar = new THREE.Mesh(cylinder(0.13, 0.13, 0.3, 14), mat(colors[(Math.floor(Math.abs(i)) + j) % colors.length], { roughness: 0.3 }));
           jar.position.set(i - 0.6 + j * 0.6, 1.5, 0.3); jar.castShadow = true; g.add(jar);
         }
       }

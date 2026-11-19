@@ -9,6 +9,7 @@ import { GameLoop } from './core/GameLoop.js';
 import { SAVE, COPYRIGHT, GAME_VERSION } from './core/Config.js';
 import { SaveManager } from './storage/SaveManager.js';
 import { StandaloneAdapter } from './platforms/StandaloneAdapter.js';
+import { CrazyGamesAdapter, wantsCrazyGames } from './platforms/CrazyGamesAdapter.js';
 import { AudioManager } from './audio/AudioManager.js';
 import { UI } from './ui/UI.js';
 
@@ -24,8 +25,15 @@ function fatal(msg) {
 
 async function boot() {
   console.info(`Cake Factory – Sweet Automation ${GAME_VERSION} · ${COPYRIGHT}`);
-  const platform = new StandaloneAdapter();
-  try { await platform.init(); } catch (e) { console.warn('Platform init failed, continuing standalone', e); }
+  let platform = null;
+  if (wantsCrazyGames(env || {})) {
+    const cg = new CrazyGamesAdapter();
+    try { await cg.init(); platform = cg; } catch (e) { console.warn('CrazyGames SDK unavailable, continuing standalone', e); }
+  }
+  if (!platform) {
+    platform = new StandaloneAdapter();
+    try { await platform.init(); } catch (e) { console.warn('Platform init failed, continuing standalone', e); }
+  }
   platform.loadingStart();
 
   const game = new Game();
@@ -118,8 +126,10 @@ async function boot() {
 
   const applySettings = () => {
     audio.setVolume(game.settings.volume);
-    audio.setMuted(game.settings.muted);
+    audio.setMuted(game.settings.muted || platform.muteAudio);
   };
+  platform.onSettingsChange(() => applySettings());
+  game.bus.on('orderCompleted', () => platform.happytime());
   applySettings();
   ui.onSettingsChange = () => { applySettings(); applyQuality(); game.requestSave(); };
 

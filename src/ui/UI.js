@@ -388,7 +388,7 @@ export class UI {
       st.className = `insp-status ${e.status}`;
       st.textContent = STATUS_TEXT[e.status] || e.status;
       if (e.type === 'oven') {
-        rows.push(['Bakes', 'Whole vanilla cake']);
+        rows.push(['Bakes', `Whole ${(FLAVORS[e.config.flavor]?.name ?? 'vanilla').toLowerCase()} cake`]);
         rows.push(['Bake time', `${e.bakeTime.toFixed(1)} s`]);
         rows.push(['Throughput', `${(60 / e.bakeTime).toFixed(0)} cakes/min`]);
         rows.push(['Progress', `${Math.round(e.progress * 100)}%`]);

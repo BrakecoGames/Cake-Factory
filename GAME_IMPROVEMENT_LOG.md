@@ -79,3 +79,58 @@ Screenshots checked by eye.
 | Stability | 8/10 | tested |
 | Mobile experience | 7/10 | tested (was 3/10) |
 | CrazyGames suitability | 5/10 | estimate (no SDK) |
+
+---
+
+## Iteration 2 – Console warning + oven panel text
+
+**Problem.** Three.js warned `parameter 'color' has value of undefined` on every boot: jar
+colours on the wall shelves were picked with a fractional array index (`12.5 % 5`), so some jars
+had no colour. The oven panel always said "Whole vanilla cake", even for chocolate ovens.
+
+**Change.** Integer index for the jar palette; oven panel names the configured flavor.
+
+**Files.** `src/rendering/FactoryRenderer.js`, `src/ui/UI.js`.
+
+**Tests.** Playwright console capture with stack trace (0 warnings after the fix); `npm test` 83/83.
+
+**Scores.** Unchanged except Stability 8 → 8.5 (tested: clean console).
+
+---
+
+## Iteration 3 – CrazyGames SDK v3 integration
+
+**Problem.** Only a standalone adapter existed; CrazyGames requires SDK lifecycle events
+(`loadingStart/Stop`, `gameplayStart/Stop`) and benefits from cloud saves and `happytime`.
+
+**Change.**
+- New `src/platforms/CrazyGamesAdapter.js` with the same interface as the standalone adapter.
+  Loads the SDK script only when selected; storage through `SDK.data` with a read fallback to
+  localStorage (existing saves keep working; localStorage is never cleared); duplicate
+  gameplayStart/Stop calls are filtered; `happytime()` on order completion; honours `muteAudio`.
+- Selection: `npm run build:crazygames` (`.env.crazygames`), `*.crazygames.*` hostnames, or
+  `?platform=crazygames`. SDK load failure / disabled environment → standalone fallback.
+
+**Files.** `src/platforms/CrazyGamesAdapter.js` (new), `src/platforms/StandaloneAdapter.js`,
+`src/main.js`, `package.json`, `.env.crazygames` (new), `README.md`, `tests/platform.test.js` (new).
+
+**Tests.** 5 new unit tests (lifecycle, storage fallback, disabled env, no data module,
+detection) – 88/88 pass. Browser with a mocked SDK: calls
+`init, loadingStart, loadingStop, gameplayStart, gameplayStop (pause), gameplayStart`; save lands
+in SDK data; "✓ Saved". Browser with the SDK URL blocked: boots standalone in 2.7 s. Both builds OK.
+
+**Not tested.** The real CrazyGames SDK (no access to their QA tool from here). Next step for a
+human: upload `npm run build:crazygames` output to the CrazyGames developer portal QA tool.
+
+| Area | Score | Basis |
+|---|---|---|
+| First impression | 7/10 | screenshots |
+| Gameplay | 7/10 | estimate |
+| Visual quality | 8/10 | screenshots |
+| Usability | 7/10 | tested |
+| Progression | 6/10 | estimate |
+| Retention potential | 5/10 | estimate |
+| Performance | 7/10 | estimate |
+| Stability | 8.5/10 | tested |
+| Mobile experience | 7/10 | tested |
+| CrazyGames suitability | 7/10 | tested with mock SDK (was 5) |
