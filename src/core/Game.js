@@ -15,9 +15,9 @@ import { OrderManager } from '../gameplay/OrderManager.js';
 import { TutorialManager } from '../gameplay/TutorialManager.js';
 import { MilestoneManager } from '../gameplay/MilestoneManager.js';
 import { DIR } from '../simulation/Grid.js';
-import { ORDER_DEFS, unlocksAfter, getOrderDef, orderIndexById } from '../gameplay/OrderDefs.js';
+import { ORDER_DEFS, unlocksAfter, getOrderDef, orderIndexById, UNLOCK_KINDS, CONTRACT_UNLOCKS } from '../gameplay/OrderDefs.js';
 import { CONFIG_OPTIONS, ROTATOR_MODE_LEVEL } from '../machines/MachineDefs.js';
-import { FLAVORS, FROSTINGS } from '../cakes/CakeModel.js';
+import { FLAVORS, FROSTINGS, DECORATIONS } from '../cakes/CakeModel.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({ volume: 0.7, music: 0.5, muted: false, quality: 'auto' });
 
@@ -83,13 +83,15 @@ export class Game {
   /** Name of the order whose completion unlocks something (for locked-tool tooltips). */
   unlockSource(kind, value) {
     const o = ORDER_DEFS.find((d) => (d.unlocks?.[kind] || []).includes(value));
-    return o ? o.name : null;
+    if (o) return o.name;
+    const n = Object.keys(CONTRACT_UNLOCKS).map(Number).find((k) => (CONTRACT_UNLOCKS[k][kind] || []).includes(value));
+    return n ? getOrderDef(ORDER_DEFS.length + n - 1).name : null;
   }
 
   _diffUnlocks(fromCount, toCount) {
     const a = unlocksAfter(fromCount), b = unlocksAfter(toCount);
     const out = [];
-    for (const kind of ['machines', 'flavors', 'frostings']) for (const v of b[kind]) if (!a[kind].has(v)) out.push({ kind, value: v });
+    for (const kind of UNLOCK_KINDS) for (const v of b[kind]) if (!a[kind].has(v)) out.push({ kind, value: v });
     return out;
   }
 
@@ -106,6 +108,7 @@ export class Game {
     const done = this.orders.completed;
     return {
       cakes: this.stats.cakes, orders: done.length, bonuses: done.filter((c) => c.bonus).length,
+      showpieces: done.filter((c) => { const m = /^contract_(\d+)$/.exec(c.id); return m && Number(m[1]) % 5 === 0; }).length,
       machines, levelUps: maxLevel - 1, earned: this.economy.totalEarned, expansions: this.global.size - 1,
     };
   }
@@ -243,6 +246,7 @@ export class Game {
     if (!opt) return false;
     if (opt.kind === 'flavor') return !!FLAVORS[value] && this.isUnlocked('flavors', value);
     if (opt.kind === 'frosting') return !!FROSTINGS[value] && this.isUnlocked('frostings', value);
+    if (opt.kind === 'decoration') return !!DECORATIONS[value] && this.isUnlocked('decorations', value);
     if (opt.kind === 'mode') return (ROTATOR_MODE_LEVEL[value] ?? 99) <= level;
     if (opt.kind === 'mask') {
       if (!Array.isArray(value) || value.length !== 4 || !value.some(Boolean)) return false;

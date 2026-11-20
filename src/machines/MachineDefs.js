@@ -99,6 +99,32 @@ export const MACHINE_DEFS = Object.freeze({
     inHold: [null, 1 / 3],
     hotkey: '6',
   },
+  stacker: {
+    type: 'stacker', name: 'Layer Stacker',
+    description: 'Puts the cake from the side input on top of the cake from the main input (max 4 layers).',
+    cost: 400, w: 1, h: 2,
+    // Same lanes as the combiner: the bottom cake rides the main lane, the top cake
+    // is lifted across from the second lane by the gantry robot.
+    inputs: [{ x: 0, y: 0, dir: DIR.W, slot: 0 }, { x: 0, y: 1, dir: DIR.W, slot: 1 }],
+    outputs: [{ x: 0, y: 0, dir: DIR.E, slot: 0 }],
+    processTime: 1.4, stage: { x: 0.5, y: 0.5 },
+    paths: { in: [[[0, 0.5], [0.5, 0.5]], [[0, 1.5], [0.5, 1.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]]] },
+    beltRuns: [[[0, 0.5], [1, 0.5]], [[0, 1.5], [0.5, 1.5]]],
+    inHold: [null, 1 / 3],
+    hotkey: '9',
+  },
+  decorator: {
+    type: 'decorator', name: 'Decorator',
+    description: 'Adds the chosen decoration to every piece of the top layer.',
+    cost: 300, w: 1, h: 1,
+    inputs: [{ x: 0, y: 0, dir: DIR.W, slot: 0 }],
+    outputs: [{ x: 0, y: 0, dir: DIR.E, slot: 0 }],
+    processTime: 1.0, stage: { x: 0.5, y: 0.5 },
+    paths: { in: [[[0, 0.5], [0.5, 0.5]]], out: [[[0.5, 0.5], [1, 0.5]]] },
+    ownBelt: false,
+    defaultConfig: { decoration: 'sprinkles', mask: [true, true, true, true] },
+    hotkey: '0',
+  },
   trash: {
     type: 'trash', name: 'Trash Bin',
     description: 'Throws away any cake piece you do not need. Accepts from every side.',
@@ -119,13 +145,14 @@ export const MACHINE_DEFS = Object.freeze({
   },
 });
 
-export const BUILDABLE_ORDER = ['belt', 'oven', 'froster', 'cutter', 'rotator', 'combiner', 'trash', 'delivery'];
+export const BUILDABLE_ORDER = ['belt', 'oven', 'froster', 'cutter', 'rotator', 'combiner', 'stacker', 'decorator', 'trash', 'delivery'];
 
 /** Options a player may pick in a machine's panel (filtered by unlocks). */
 export const CONFIG_OPTIONS = Object.freeze({
   oven: [{ key: 'flavor', kind: 'flavor' }],
   froster: [{ key: 'color', kind: 'frosting' }, { key: 'mask', kind: 'mask', minLevel: 3 }],
   rotator: [{ key: 'mode', kind: 'mode' }],
+  decorator: [{ key: 'decoration', kind: 'decoration' }, { key: 'mask', kind: 'mask', minLevel: 3 }],
 });
 
 /** Minimum machine level for each rotator mode. */

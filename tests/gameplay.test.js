@@ -118,18 +118,18 @@ test('removing refunds and running out of money never goes negative', () => {
   assert.equal(g.economy.money, 0);
 });
 
-test('contracts: bonus pace tightens to a floor and pay per cake grows, capped', async () => {
-  const { makeContractOrder } = await import('../src/gameplay/OrderDefs.js');
-  const c1 = makeContractOrder(1), c10 = makeContractOrder(10), c60 = makeContractOrder(60);
-  assert.equal(c1.bonus.seconds, Math.round(c1.quantity * 2.2));
-  assert.ok(c10.bonus.seconds / c10.quantity < c1.bonus.seconds / c1.quantity);
-  assert.ok(Math.abs(c60.bonus.seconds / c60.quantity - 1.2) < 0.02, 'pace floor 1.2 s per cake');
-  assert.equal(c1.perCake, 15);
-  assert.ok(makeContractOrder(7).perCake > c1.perCake);
-  assert.ok(c60.perCake <= 2 * 50, 'pay capped at ×2');
+test('endless contracts: harder over time, Showpiece every 5th, deterministic', async () => {
+  const { makeContractOrder, isShowpiece } = await import('../src/gameplay/OrderDefs.js');
+  const early = makeContractOrder(2), late = makeContractOrder(40);
+  assert.ok(late.score > early.score, `difficulty grows (${early.score} → ${late.score})`);
+  assert.ok(late.perCake > early.perCake, 'pay grows with difficulty');
+  assert.ok(makeContractOrder(10).boss && isShowpiece(10) && !makeContractOrder(11).boss);
+  assert.ok(makeContractOrder(10).reward > makeContractOrder(9).reward, 'Showpieces pay more');
+  assert.equal(makeContractOrder(17).cake, makeContractOrder(17).cake);
+  for (let n = 2; n <= 60; n++) assert.notEqual(makeContractOrder(n).cake, makeContractOrder(n - 1).cake, `contract ${n} is a new cake`);
 });
 
-test('contract choice: repeat the previous recipe at lower pay, only before the first cake, saved', async () => {
+test('contract choice: repeat the previous cake at lower pay, only before the first cake, saved', async () => {
   const { ORDER_DEFS, REPEAT_PAY, makeContractOrder } = await import('../src/gameplay/OrderDefs.js');
   const { parseCakeKey } = await import('../src/cakes/CakeSerializer.js');
   const om = new OrderManager();
@@ -138,24 +138,39 @@ test('contract choice: repeat the previous recipe at lower pay, only before the 
   const deliverAll = () => { const q = om.current.quantity, cake = parseCakeKey(om.current.cake); for (let i = 0; i < q; i++) om.deliver(cake, i); };
   deliverAll();
   const first = makeContractOrder(1);
-  assert.equal(om.lastRecipe, first.recipe);
+  assert.equal(om.lastRecipe, first.cake);
   const alt = om.alternative;
   assert.ok(alt && alt.repeat, 'contract #2 offers a repeat of #1');
   assert.equal(alt.cake, first.cake);
-  assert.equal(alt.perCake, Math.round(makeContractOrder(2, first.recipe).perCake));
-  assert.ok(alt.perCake < makeContractOrder(2).perCake / REPEAT_PAY + 1);
-  const rotationCake = om.current.cake;
+  const fresh = om.current;
+  assert.ok(alt.perCake <= Math.round(fresh.perCake / 1) && REPEAT_PAY < 1);
   assert.ok(om.switchContract());
   assert.equal(om.current.cake, first.cake);
-  assert.equal(om.alternative.cake, rotationCake, 'can switch back');
-  // persisted
+  assert.equal(om.alternative.cake, fresh.cake, 'can switch back');
   const om2 = new OrderManager(); om2.load(JSON.parse(JSON.stringify(om.serialize())));
-  assert.equal(om2.current.cake, first.cake);
-  // locked after the first cake
+  assert.equal(om2.current.cake, first.cake, 'persisted');
   om.deliver(parseCakeKey(om.current.cake), 100);
-  assert.equal(om.alternative, null);
+  assert.equal(om.alternative, null, 'locked after the first cake');
   assert.equal(om.switchContract(), false);
-  // scripted orders never offer a switch
-  const om3 = new OrderManager(); om3.lastRecipe = 0;
-  assert.equal(om3.alternative, null);
+  const om3 = new OrderManager(); om3.lastRecipe = first.cake;
+  assert.equal(om3.alternative, null, 'scripted orders never offer a switch');
+  // Showpieces cannot be swapped for an easy repeat.
+  const om4 = new OrderManager(); om4.index = ORDER_DEFS.length + 4; om4.lastRecipe = first.cake;
+  assert.ok(om4.current.boss);
+  assert.equal(om4.alternative, null);
+});
+
+test('saves from before endless orders: a running contract keeps its old cake at full pay', async () => {
+  const { ORDER_DEFS, LEGACY_CONTRACT_RECIPES } = await import('../src/gameplay/OrderDefs.js');
+  const om = new OrderManager();
+  om.load({ id: 'contract_3', delivered: 4, startedAt: 0, completed: [], recipe: null, lastRecipe: 1 });
+  assert.equal(om.index, ORDER_DEFS.length + 2);
+  assert.equal(om.current.cake, LEGACY_CONTRACT_RECIPES[2]);
+  assert.equal(om.current.repeat, false);
+  assert.equal(om.delivered, 4);
+  assert.equal(om.lastRecipe, LEGACY_CONTRACT_RECIPES[1], 'old recipe index mapped to its cake');
+  // A legacy repeat choice (index) is kept too.
+  const om2 = new OrderManager();
+  om2.load({ id: 'contract_4', delivered: 0, completed: [], recipe: 0, lastRecipe: 0 });
+  assert.equal(om2.current.cake, LEGACY_CONTRACT_RECIPES[0]);
 });

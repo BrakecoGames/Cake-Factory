@@ -433,9 +433,8 @@ export function buildRotator() {
  * The robot's carriage runs along the gantry beam (local Z), its gripper
  * lifts B and sets it down on A.
  */
-export function buildCombiner() {
+export function buildCombiner(body = PALETTE.pink, beam = PALETTE.pinkDark, label = null) {
   const g = new THREE.Group();
-  const body = PALETTE.pink;
   const steel = mat('#dfe3e9', { metalness: 0.85, roughness: 0.22 });
   g.add(wall(0.94, 0.5, body, 0, -0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, -0.98));
   g.add(wall(0.94, 0.5, body, 0, 0.98), capStrip(0.96, PALETTE.cream, 0, 0.52, 0.98));
@@ -443,7 +442,8 @@ export function buildCombiner() {
   // Gantry: two posts and a beam across both lanes.
   const BEAM_Y = 1.25;
   for (const z of [-0.98, 0.98]) g.add(mesh(roundedBox(0.12, BEAM_Y, 0.12, 0.04), mat(PALETTE.cream), 0, BEAM_Y / 2, z));
-  g.add(mesh(roundedBox(0.14, 0.12, 2.1, 0.04), mat(PALETTE.pinkDark), 0, BEAM_Y, 0));
+  g.add(mesh(roundedBox(0.14, 0.12, 2.1, 0.04), mat(beam), 0, BEAM_Y, 0));
+  if (label) { const f = flag(label, beam); f.position.set(0.46, 0.66, -0.86); g.add(f); }
   g.add(mesh(roundedBox(0.03, 0.03, 1.9, 0.01), steel, -0.085, BEAM_Y, 0)); // rail
   // Carriage (moves along Z) with a telescopic arm and a two-finger gripper.
   const carriage = new THREE.Group();
@@ -462,6 +462,47 @@ export function buildCombiner() {
   carriage.add(gripper);
   g.add(carriage);
   return { group: g, parts: { carriage, arm, gripper, fingers, beamY: BEAM_Y } };
+}
+
+/** Layer Stacker (1×2): the combiner's gantry robot, lifting the top cake onto the bottom one. */
+export function buildStacker() {
+  return buildCombiner(PALETTE.mint, '#2e9e78', '▲');
+}
+
+/**
+ * Decorator (1×1): low guards, a turntable under the stage and a hopper above
+ * it that sprinkles the chosen decoration (hopper tinted with its colour).
+ */
+export function buildDecorator() {
+  const g = new THREE.Group();
+  const body = PALETTE.vanilla;
+  for (const z of [-0.48, 0.48]) g.add(wall(0.92, SURF + 0.12, body, 0, z), capStrip(0.94, PALETTE.cream, 0, SURF + 0.14, z));
+  const table = new THREE.Group();
+  table.position.y = SURF + 0.012;
+  table.add(mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.02, 32), mat(PALETTE.white, { roughness: 0.4 }), 0, 0, 0));
+  g.add(table);
+  transferPlates(g, 0.33);
+  // Column at the back with an arm holding the hopper over the cake.
+  g.add(mesh(roundedBox(0.12, 1.05, 0.12, 0.04), mat(PALETTE.cream), -0.32, 0.525, -0.42));
+  g.add(mesh(roundedBox(0.12, 0.1, 0.5, 0.04), mat('#c98a2e'), -0.32, 1.02, -0.2));
+  g.add(mesh(roundedBox(0.5, 0.1, 0.12, 0.04), mat('#c98a2e'), -0.1, 1.02, 0));
+  const hopper = new THREE.Group();
+  hopper.position.set(0, 0.86, 0);
+  const tintMat = new THREE.MeshStandardMaterial({ color: '#ff9ad5', roughness: 0.35, emissive: '#000000' });
+  hopper.add(mesh(new THREE.CylinderGeometry(0.17, 0.06, 0.24, 18), mat('#eef2f7', { metalness: 0.7, roughness: 0.25 }), 0, 0, 0));
+  hopper.add(mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.04, 18), tintMat, 0, 0.11, 0)); // the filling, seen from above
+  hopper.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.06, 10), mat('#c98a2e'), 0, -0.15, 0));
+  g.add(hopper);
+  // Falling sprinkles (shown while working).
+  const fall = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const d = mesh(roundedBox(0.03, 0.03, 0.03, 0.01), tintMat, (Math.sin(i * 2.3) * 0.12), 0, (Math.cos(i * 1.7) * 0.12), false);
+    d.userData.phase = i / 10;
+    fall.add(d);
+  }
+  fall.visible = false;
+  g.add(fall);
+  return { group: g, parts: { table, hopper, tintMat, fall } };
 }
 
 /** Trash bin (1×1). */
@@ -483,5 +524,5 @@ export function buildTrash() {
 
 export const MODEL_BUILDERS = {
   oven: buildOven, delivery: buildDelivery, froster: buildFroster, cutter: buildCutter,
-  rotator: buildRotator, combiner: buildCombiner, trash: buildTrash,
+  rotator: buildRotator, combiner: () => buildCombiner(), stacker: buildStacker, decorator: buildDecorator, trash: buildTrash,
 };

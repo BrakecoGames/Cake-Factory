@@ -27,6 +27,13 @@ export const MILESTONES = Object.freeze([
   { id: 'earned_100k', name: 'Cake Tycoon', desc: 'Earn $100,000 in total', stat: 'earned', goal: 100000, reward: 5000 },
   { id: 'cakes_1000', name: 'Legendary Bakery', desc: 'Deliver 1,000 correct cakes', stat: 'cakes', goal: 1000, reward: 6000 },
   { id: 'expand_4', name: 'Mega Factory', desc: 'Expand the factory to full size', stat: 'expansions', goal: 4, reward: 8000 },
+  // Endless play
+  { id: 'showpiece_1', name: 'Showstopper', desc: 'Complete a Showpiece order', stat: 'showpieces', goal: 1, reward: 1200 },
+  { id: 'orders_30', name: 'Bakery Legend', desc: 'Complete 30 orders', stat: 'orders', goal: 30, reward: 6000 },
+  { id: 'showpiece_5', name: 'Master Pâtissier', desc: 'Complete 5 Showpiece orders', stat: 'showpieces', goal: 5, reward: 12000 },
+  { id: 'orders_60', name: 'Cake Empire', desc: 'Complete 60 orders', stat: 'orders', goal: 60, reward: 25000 },
+  { id: 'cakes_5000', name: 'Sweet Infinity', desc: 'Deliver 5,000 correct cakes', stat: 'cakes', goal: 5000, reward: 30000 },
+  { id: 'showpiece_20', name: 'Hall of Fame', desc: 'Complete 20 Showpiece orders', stat: 'showpieces', goal: 20, reward: 60000 },
 ]);
 
 export class MilestoneManager {

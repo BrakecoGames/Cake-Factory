@@ -17,14 +17,14 @@ import { CakeRenderer } from '../cakes/CakeRenderer.js';
 import { EffectsManager } from './EffectsManager.js';
 import {
   MODEL_BUILDERS, buildAlertSprite, arrowGeometry, textures, roundedBox, cylinder, mat, PALETTE, contactShadowMaterial } from './ModelFactory.js';
-import { FROSTINGS, FLAVORS } from '../cakes/CakeModel.js';
+import { FROSTINGS, FLAVORS, DECORATIONS } from '../cakes/CakeModel.js';
 import { ConveyorRenderer, SURF } from './ConveyorRenderer.js';
 import { ShopRenderer } from './ShopRenderer.js';
 import { DOOR_GAP, DOOR_H } from './Storefront.js';
 import { pointAt } from '../machines/Paths.js';
-import { frost } from '../cakes/CakeOperations.js';
+import { frost, decorate, stack } from '../cakes/CakeOperations.js';
 
-const ALERT_H = { oven: 1.35, delivery: 1.8, froster: 1.45, cutter: 1.25, rotator: 0.95, combiner: 1.35, trash: 1.05 };
+const ALERT_H = { oven: 1.35, delivery: 1.8, froster: 1.45, cutter: 1.25, rotator: 0.95, combiner: 1.35, stacker: 1.35, decorator: 1.25, trash: 1.05 };
 /** Machines whose every side is an input – no port decals needed. */
 const OMNI = new Set(['delivery', 'trash']);
 
@@ -531,6 +531,25 @@ export class FactoryRenderer {
           }
           shown = [e._frostPreview.cake];
         }
+      } else if (e.type === 'decorator') {
+        rotY = -e.progress * Math.PI * 2;
+        if (e.progress > 0.5) {
+          const src = e.current[0];
+          if (!e._decoPreview || e._decoPreview.src !== src || e._decoPreview.d !== e.config.decoration) {
+            const mask = e.config.mask || [true, true, true, true];
+            e._decoPreview = { src, d: e.config.decoration, cake: decorate(src, e.config.decoration, [0, 1, 2, 3].filter((i) => mask[i])) };
+          }
+          shown = [e._decoPreview.cake];
+        }
+      } else if (e.type === 'stacker') {
+        // Show the finished stack once the robot has set the top cake down.
+        if (e.current[0] && e.current[1]) {
+          if (!e._stackPreview || e._stackPreview.a !== e.current[0] || e._stackPreview.b !== e.current[1]) {
+            const r = stack(e.current[0], e.current[1]);
+            e._stackPreview = { a: e.current[0], b: e.current[1], cake: r.ok ? r.cake : e.current[0] };
+          }
+          shown = [e._stackPreview.cake];
+        }
       } else if (e.type === 'rotator') {
         const k = e.progress;
         const ease = k * k * (3 - 2 * k);
@@ -550,7 +569,7 @@ export class FactoryRenderer {
     for (let i = 0; i < e.nIn; i++) {
       const c = e.inSlots[i];
       if (!c) continue;
-      if (e.type === 'combiner' && i === 1) {
+      if ((e.type === 'combiner' || e.type === 'stacker') && i === 1) {
         // Piece B: on its belt, then lifted across by the gantry robot.
         const r = this._combinerB(e);
         this._machinePoint(e, 0.5 + r.x, 1 + r.z, r.y, tmp);
@@ -635,6 +654,19 @@ export class FactoryRenderer {
           P.table.rotation.y = -ease * Math.PI / 2;
         } else P.table.rotation.y = 0;
         break;
+      case 'decorator': {
+        const col = DECORATIONS[e.config.decoration]?.color || '#ff9ad5';
+        P.tintMat.color.set(col);
+        P.table.rotation.y = e.working ? -e.progress * Math.PI * 2 : 0;
+        P.hopper.position.x = e.working ? Math.sin(this.time * 40) * 0.008 : 0;
+        P.fall.visible = e.working && e.progress > 0.1 && e.progress < 0.85;
+        if (P.fall.visible) for (const d of P.fall.children) {
+          const k = (this.time * 1.8 + d.userData.phase) % 1;
+          d.position.y = 0.7 - k * (0.7 - (SURF + 0.3));
+        }
+        break;
+      }
+      case 'stacker':
       case 'combiner': {
         // Gantry robot: follow piece B while it is carried, otherwise wait above the pick-up.
         const r = this._combinerB(e);

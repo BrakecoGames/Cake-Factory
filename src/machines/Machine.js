@@ -6,13 +6,14 @@
  */
 import { getDef } from './MachineDefs.js';
 import { rotateLocal, rotatedSize, rotateDir, DX, DY } from '../simulation/Grid.js';
-import { FLAVORS, FROSTINGS } from '../cakes/CakeModel.js';
+import { FLAVORS, FROSTINGS, DECORATIONS } from '../cakes/CakeModel.js';
 import { UPGRADES } from '../core/Config.js';
 
 const CONFIG_VALIDATORS = {
   flavor: (v) => !!FLAVORS[v],
   color: (v) => !!FROSTINGS[v],
   mode: (v) => v === 'cw' || v === 'ccw' || v === '180',
+  decoration: (v) => !!DECORATIONS[v],
   mask: (v) => Array.isArray(v) && v.length === 4 && v.every((b) => typeof b === 'boolean') && v.some(Boolean),
 };
 

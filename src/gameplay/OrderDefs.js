@@ -17,7 +17,13 @@ const P = (flavor, frosting = null) => `${flavor}:${frosting ?? '_'}:_`;
 const key = (tl, tr, br, bl) => [tl, tr, br, bl].map((q) => q ?? '-').join(',');
 const whole = (f, fr = null) => key(P(f, fr), P(f, fr), P(f, fr), P(f, fr));
 
+import { generateRecipe, scoreCake, requiredMachines, nameRecipe, hintFor } from './RecipeGenerator.js';
+// (contractCake uses generateRecipe; makeContractOrder reads the cached cake)
+import { parseCakeKey } from '../cakes/CakeSerializer.js';
+
 export const STARTING_UNLOCKS = {
+  decorations: [],
+  features: [],
   machines: ['belt', 'oven', 'delivery'],
   flavors: ['vanilla'],
   // Every frosting colour is available from the start (only the machine unlocks).
@@ -92,62 +98,116 @@ export const ORDER_DEFS = [
   },
 ];
 
-/** Recipes reused by repeatable contracts (all producible after the scripted orders). */
-const CONTRACT_RECIPES = [
-  { name: 'Pink Vanilla', cake: whole('vanilla', 'pink'), value: 15 },
-  { name: 'Half & Half', cake: ORDER_DEFS[4].cake, value: 25 },
-  { name: 'Sunrise', cake: ORDER_DEFS[5].cake, value: 30 },
-  { name: 'Lemon Drizzle', cake: whole('lemon', 'yellow'), value: 15 },
-  { name: 'Blue Moon', cake: key(P('blueberry', 'blue'), null, null, P('blueberry', 'blue')), value: 25 },
-  { name: 'Four Flavors', cake: ORDER_DEFS[7].cake, value: 50 },
-];
+/**
+ * Recipes of the old rotating contracts. Only kept so saves that stored a
+ * recipe *index* (before endless orders) still resolve to the same cake.
+ */
+export const LEGACY_CONTRACT_RECIPES = Object.freeze([
+  whole('vanilla', 'pink'), ORDER_DEFS[4].cake, ORDER_DEFS[5].cake,
+  whole('lemon', 'yellow'), key(P('blueberry', 'blue'), null, null, P('blueberry', 'blue')), ORDER_DEFS[7].cake,
+]);
 
-/** Recipe index the rotation offers for contract n. */
-export const contractRecipeIndex = (n) => (n - 1) % CONTRACT_RECIPES.length;
-export const contractRecipeName = (i) => CONTRACT_RECIPES[i]?.name ?? null;
+/**
+ * What finishing endless contract n unlocks. Every 5th contract is a Showpiece
+ * whose reward is a new machine or ingredient set, so there is always a next
+ * goal in sight. Later Showpieces raise the stakes (bigger towers, more pay).
+ */
+export const CONTRACT_UNLOCKS = Object.freeze({
+  2: { flavors: ['caramel'] },
+  5: { machines: ['stacker'] },
+  8: { flavors: ['redvelvet'] },
+  10: { machines: ['decorator'], decorations: ['sprinkles', 'cherry'] },
+  13: { decorations: ['swirl'] },
+  15: { decorations: ['strawberry'] },
+  18: { flavors: ['pistachio'] },
+  20: { decorations: ['chocolate'], features: ['layers3'] },
+  30: { features: ['layers4'] },
+});
 
-/** Pay factor for repeating the previous contract's recipe (the line already exists). */
+/** Names of unlockable features (not machines or ingredients). */
+export const FEATURES = Object.freeze({
+  layers3: 'Cakes up to 3 layers',
+  layers4: 'Cakes up to 4 layers',
+});
+
+/** Contract n is a Showpiece (boss order). */
+export const isShowpiece = (n) => n % 5 === 0;
+
+/** Pay factor for repeating the previous contract's cake (the line already exists). */
 export const REPEAT_PAY = 0.85;
 
 /**
- * After the scripted orders run out, repeatable contracts keep the factory
- * busy. They cycle through recipes and scale so optimisation pays off.
+ * Endless contract n. Each one asks for a newly generated cake (see
+ * RecipeGenerator) a little harder than before. `repeatCake` (a cake key)
+ * swaps in the previous contract's cake at REPEAT_PAY – the player's choice
+ * between a new puzzle and an existing line.
  */
+const _contractOrders = new Map();
 /**
- * @param {number} n contract number (1-based)
- * @param {number} [recipe] recipe index; defaults to the rotation. A recipe other
- *   than the rotation's is a "repeat" and pays REPEAT_PAY.
+ * `legacy`: a contract that was already running in a save from before endless
+ * orders keeps its old cake at full pay (the player's line makes that cake).
  */
-export function makeContractOrder(n, recipe = contractRecipeIndex(n)) {
-  const repeat = recipe !== contractRecipeIndex(n);
-  const r = CONTRACT_RECIPES[recipe] ?? CONTRACT_RECIPES[contractRecipeIndex(n)];
-  const quantity = 15 + n * 5;
-  // The bonus pace tightens slowly (2.2 → 1.2 s per cake) so upgrades keep mattering,
-  // and pay per cake grows a little (up to ×2) so later upgrades stay affordable.
-  const pace = Math.max(1.2, 2.2 - 0.05 * (n - 1));
-  const seconds = Math.round(quantity * pace);
+export function makeContractOrder(n, repeatCake = null, legacy = false) {
+  // `current` is read every frame; generated orders are deterministic, so cache them.
+  const ck = `${n}|${repeatCake || ''}|${legacy ? 1 : 0}`;
+  if (!_contractOrders.has(ck)) {
+    if (_contractOrders.size > 200) _contractOrders.clear();
+    _contractOrders.set(ck, buildContractOrder(n, repeatCake, legacy));
+  }
+  return _contractOrders.get(ck);
+}
+
+function buildContractOrder(n, repeatCake, legacy) {
+  const boss = isShowpiece(n);
+  const genKey = contractCake(n);
+  const gen = { cake: genKey, score: scoreCake(parseCakeKey(genKey)) };
+  const keepOld = legacy && !!repeatCake;
+  const repeat = !keepOld && !!repeatCake && repeatCake !== gen.cake && !boss;
+  const cake = repeat || keepOld ? repeatCake : gen.cake;
+  const score = repeat ? scoreCake(parseCakeKey(cake)) : gen.score;
   const pay = repeat ? REPEAT_PAY : 1;
-  const perCake = Math.round(r.value * Math.min(2, 1 + 0.04 * (n - 1)) * pay);
+  const growth = Math.min(2, 1 + 0.03 * (n - 1));
+  const quantity = Math.round(Math.max(8, Math.min(40, 10 + n * 0.5 - score * 0.35)) * (boss ? 0.8 : 1));
+  // Bonus pace tightens over time (upgrades keep mattering); complex cakes get a little more time.
+  const pace = Math.max(1.3, 2.6 - 0.035 * (n - 1)) + 0.06 * score;
+  const seconds = Math.round(quantity * pace);
+  const perCake = Math.round((8 + score * 4) * growth * pay);
+  const named = nameRecipe(n, cake, boss);
+  const unlocks = CONTRACT_UNLOCKS[n] || {};
   return {
     id: `contract_${n}`,
-    name: `${r.name} Contract #${n}`,
-    customer: 'Sweet Supply Co.',
-    cake: r.cake,
+    name: keepOld ? `Classic Contract #${n}` : repeat ? `Encore #${n}: same cake again` : named.name,
+    customer: named.customer,
+    cake,
     quantity,
     perCake,
-    reward: Math.round((300 + n * 150) * pay),
-    recipe, repeat,
-    difficulty: 4,
-    bonus: { seconds, reward: 200 + n * 60, text: `Deliver all ${quantity} within ${seconds} s` },
-    hint: n === 1 ? 'Repeatable contract. Upgrade machines (U) and buy Bakery Upgrades (⬆) to beat the timer.' : '',
-    unlocks: {},
-    purpose: 'Repeatable contract.',
+    reward: Math.round((250 + n * 120 + score * 30) * pay * (boss ? 2 : 1)),
+    recipe: repeat || keepOld ? cake : null, repeat, legacy: keepOld, boss: boss && !keepOld, score,
+    difficulty: Math.min(5, 1 + Math.round(score / 4)),
+    requires: requiredMachines(parseCakeKey(cake)),
+    bonus: { seconds, reward: Math.round((150 + n * 50) * (boss ? 2 : 1)), text: `Deliver all ${quantity} within ${seconds} s` },
+    hint: hintFor(cake),
+    unlocks,
+    purpose: boss ? 'Showpiece.' : 'Endless puzzle order.',
   };
 }
 
-export function getOrderDef(index, recipe) {
+const _contractCakes = new Map();
+/** The generated cake of contract n (cached; generation is deterministic). */
+export function contractCake(n) {
+  if (n < 1) return null;
+  // Fill the cache in order so the recursion (each cake avoids the previous one) stays shallow.
+  for (let i = 1; i < n; i++) if (!_contractCakes.has(i)) contractCake(i);
+  if (!_contractCakes.has(n)) {
+    const u = unlocksAfter(ORDER_DEFS.length + n - 1);
+    _contractCakes.set(n, generateRecipe(n, u, { boss: isShowpiece(n), avoid: contractCake(n - 1) }).cake);
+  }
+  return _contractCakes.get(n);
+}
+
+export function getOrderDef(index, repeatCake = null, legacy = false) {
   if (index < ORDER_DEFS.length) return ORDER_DEFS[index];
-  return makeContractOrder(index - ORDER_DEFS.length + 1, recipe ?? undefined);
+  return makeContractOrder(index - ORDER_DEFS.length + 1, repeatCake, legacy);
 }
 
 /**
@@ -166,16 +226,42 @@ export function orderIndexById(id) {
   return m ? ORDER_DEFS.length + Number(m[1]) - 1 : -1;
 }
 
+export const UNLOCK_KINDS = ['machines', 'flavors', 'frostings', 'decorations', 'features'];
+
+/** Unlocks granted by finishing order `index` (scripted or endless). */
+export function orderUnlocks(index) {
+  if (index < ORDER_DEFS.length) return ORDER_DEFS[index].unlocks || {};
+  return CONTRACT_UNLOCKS[index - ORDER_DEFS.length + 1] || {};
+}
+
 /** Everything unlocked once the first `completedCount` orders are done. */
 export function unlocksAfter(completedCount) {
-  const u = {
-    machines: new Set(STARTING_UNLOCKS.machines),
-    flavors: new Set(STARTING_UNLOCKS.flavors),
-    frostings: new Set(STARTING_UNLOCKS.frostings),
-  };
-  for (let i = 0; i < Math.min(completedCount, ORDER_DEFS.length); i++) {
-    const un = ORDER_DEFS[i].unlocks || {};
-    for (const k of ['machines', 'flavors', 'frostings']) for (const v of un[k] || []) u[k].add(v);
+  const u = Object.fromEntries(UNLOCK_KINDS.map((k) => [k, new Set(STARTING_UNLOCKS[k] || [])]));
+  const lastContract = Math.max(...Object.keys(CONTRACT_UNLOCKS).map(Number));
+  const end = Math.min(completedCount, ORDER_DEFS.length + lastContract);
+  for (let i = 0; i < end; i++) {
+    const un = orderUnlocks(i);
+    for (const k of UNLOCK_KINDS) for (const v of un[k] || []) u[k].add(v);
   }
   return u;
+}
+
+/**
+ * The next order (from `index`, the current one) that unlocks something:
+ * { inOrders (1 = the current order), unlocks } or null when all is unlocked.
+ */
+export function nextUnlock(index) {
+  const lastContract = Math.max(...Object.keys(CONTRACT_UNLOCKS).map(Number));
+  for (let i = index; i < ORDER_DEFS.length + lastContract; i++) {
+    const un = orderUnlocks(i);
+    if (UNLOCK_KINDS.some((k) => (un[k] || []).length)) return { inOrders: i - index + 1, unlocks: un };
+  }
+  return null;
+}
+
+/** Orders until the next Showpiece (1 = the current order), or null during the scripted orders. */
+export function nextShowpiece(index) {
+  if (index < ORDER_DEFS.length) return null;
+  const n = index - ORDER_DEFS.length + 1;
+  return 5 - ((n - 1) % 5);
 }

@@ -18,7 +18,7 @@
  * A machine never starts while any output is still inside it (no overproduction).
  */
 import { Machine, STATUS } from './Machine.js';
-import { rotateCW, rotateCCW, rotate180, cutHalves, combine, frost } from '../cakes/CakeOperations.js';
+import { rotateCW, rotateCCW, rotate180, cutHalves, combine, frost, stack, decorate } from '../cakes/CakeOperations.js';
 import { isValidCakeData } from '../cakes/CakeModel.js';
 import { serializeCake, deserializeCake } from '../cakes/CakeSerializer.js';
 import { pathLength } from './Paths.js';
@@ -207,6 +207,32 @@ export class Combiner extends Processor {
     const r = combine(a, b);
     // refuse() guarantees compatibility; this is a safety net.
     return r.ok ? [r.cake] : [a];
+  }
+}
+
+export class Stacker extends Processor {
+  constructor(id, x, y, rot) { super(id, 'stacker', x, y, rot); }
+  /** Refuse a piece that would make the stack too tall. */
+  refuse(cake, slot) {
+    const other = this.inSlots[1 - slot];
+    if (!other) return null;
+    const r = slot === 1 ? stack(other, cake) : stack(cake, other);
+    return r.ok ? null : `Too many layers (${r.reason})`;
+  }
+  /** Main input (slot 0) is the bottom, the side input (slot 1) goes on top. */
+  process([bottom, top]) {
+    const r = stack(bottom, top);
+    return r.ok ? [r.cake] : [bottom];
+  }
+}
+
+export class Decorator extends Processor {
+  constructor(id, x, y, rot) { super(id, 'decorator', x, y, rot); }
+  /** Decorates the top layer; from level 3 only the quadrants enabled in `mask`. */
+  process([c]) {
+    const mask = this.config.mask || [true, true, true, true];
+    const quads = [0, 1, 2, 3].filter((i) => mask[i]);
+    return [decorate(c, this.config.decoration, quads)];
   }
 }
 

@@ -9,7 +9,8 @@
 import { MACHINE_DEFS, BUILDABLE_ORDER, CONFIG_OPTIONS, ROTATOR_MODE_LEVEL } from '../machines/MachineDefs.js';
 import { STATUS } from '../machines/Machine.js';
 import { parseCakeKey } from '../cakes/CakeSerializer.js';
-import { describeCake, FLAVORS, FROSTINGS, QUADRANT_NAMES } from '../cakes/CakeModel.js';
+import { describeCake, FLAVORS, FROSTINGS, DECORATIONS, QUADRANT_NAMES } from '../cakes/CakeModel.js';
+import { nextUnlock, nextShowpiece, FEATURES } from '../gameplay/OrderDefs.js';
 import { rotateCW } from '../cakes/CakeOperations.js';
 import { DIR_NAMES } from '../simulation/Grid.js';
 import { TUTORIAL_STEPS } from '../gameplay/TutorialManager.js';
@@ -30,6 +31,8 @@ const ICONS = {
   cutter: '<svg viewBox="0 0 40 40"><rect x="6" y="20" width="28" height="14" rx="4" fill="#8fcbff"/><circle cx="20" cy="15" r="9" fill="#e9eef5" stroke="#9fb0c4" stroke-width="2"/><circle cx="20" cy="15" r="2.5" fill="#e9668f"/><path d="M20 22v10" stroke="#fff" stroke-width="2" stroke-dasharray="2 2"/></svg>',
   rotator: '<svg viewBox="0 0 40 40"><rect x="5" y="22" width="30" height="12" rx="4" fill="#c9b6ff"/><ellipse cx="20" cy="21" rx="13" ry="5" fill="#fff"/><path d="M10 15a11 6 0 0 1 20 0" stroke="#e9668f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M31 11l-1 6-5-2z" fill="#e9668f"/></svg>',
   combiner: '<svg viewBox="0 0 40 40"><rect x="5" y="22" width="30" height="12" rx="4" fill="#ff8fb1"/><path d="M8 18a8 8 0 0 1 12-7v14z" fill="#f6dfa4"/><path d="M32 18a8 8 0 0 0-12-7v14z" fill="#7a4a2e"/><rect x="12" y="4" width="16" height="4" rx="2" fill="#ffe6a3"/></svg>',
+  stacker: '<svg viewBox="0 0 40 40"><rect x="5" y="26" width="30" height="9" rx="3" fill="#4fd3a0"/><rect x="10" y="19" width="20" height="7" rx="3" fill="#7a4a2e"/><rect x="10" y="12" width="20" height="7" rx="3" fill="#f6dfa4"/><path d="M10 12c3 3 5-1 7 1s5-1 7 1 4-1 6 0v-2a3 3 0 0 0-3-3H13a3 3 0 0 0-3 3z" fill="#ff8fb1"/><path d="M20 2v7M16 6l4-4 4 4" stroke="#2e9e78" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  decorator: '<svg viewBox="0 0 40 40"><rect x="6" y="26" width="28" height="9" rx="3" fill="#ffd36e"/><path d="M12 4h16l-5 10h-6z" fill="#dfe3e9"/><circle cx="14" cy="20" r="1.8" fill="#ff6f9f"/><circle cx="20" cy="18" r="1.8" fill="#5fb3ff"/><circle cx="26" cy="21" r="1.8" fill="#4fd3a0"/><circle cx="17" cy="24" r="1.6" fill="#a58cff"/><circle cx="24" cy="25" r="2.6" fill="#e8344e"/></svg>',
   trash: '<svg viewBox="0 0 40 40"><path d="M10 13h20l-2 21H12z" fill="#9fb4c7"/><rect x="8" y="9" width="24" height="5" rx="2.5" fill="#7fdcb0"/><rect x="17" y="5" width="6" height="4" rx="2" fill="#3fb27f"/><path d="M16 18v12M24 18v12" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
   upgrade: '<svg viewBox="0 0 40 40"><path d="M20 4l7 9h-4v9h-6v-9h-4z" fill="#ffd84d" stroke="#c48a00" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 27l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L1.8 32.2l5-.7z" transform="translate(6 -4) scale(.9)" fill="#ff8fb1"/><path d="M9 27l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L1.8 32.2l5-.7z" transform="translate(17 -4) scale(.9)" fill="#ff8fb1"/></svg>',
   delete: '<svg viewBox="0 0 40 40"><rect x="10" y="12" width="20" height="23" rx="4" fill="#ff8095"/><rect x="7" y="8" width="26" height="5" rx="2.5" fill="#d63a55"/><rect x="16" y="4" width="8" height="5" rx="2" fill="#d63a55"/><path d="M16 17v13M24 17v13" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>',
@@ -43,6 +46,8 @@ const TOOL_META = {
   cutter: { label: 'Cutter', key: '4' },
   rotator: { label: 'Rotator', key: '5' },
   combiner: { label: 'Combiner', key: '6' },
+  stacker: { label: 'Stacker', key: '9' },
+  decorator: { label: 'Decorator', key: '0' },
   trash: { label: 'Trash', key: '7' },
   delivery: { label: 'Delivery', key: '8' },
   rotate: { label: 'Rotate', key: 'R' },
@@ -81,6 +86,20 @@ const MACHINE_TIPS = {
       <path d="M86 18a16 16 0 0 1 22 0" stroke="#e9668f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M110 12l1 9-8-2z" fill="#e9668f"/>
       <path d="M128 30a22 22 0 0 1 44 0z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/></svg>`,
     text: 'Turns a cake <b>90° clockwise</b>: a left half becomes a <b>top</b> half, a right half a bottom half. Click the order picture to preview rotations.',
+  },
+  stacker: {
+    title: 'New machine: Layer Stacker',
+    svg: `<svg viewBox="0 0 190 60"><rect x="10" y="34" width="44" height="14" rx="5" fill="#7a4a2e"/><text x="60" y="45" font-size="18" font-weight="700" fill="#4a2c3a">+</text>
+      <rect x="76" y="34" width="44" height="14" rx="5" fill="#f6dfa4"/>${ARROW(124, 41, '', '#2e9e78')}
+      <rect x="156" y="40" width="30" height="12" rx="4" fill="#7a4a2e"/><rect x="156" y="27" width="30" height="12" rx="4" fill="#f6dfa4"/></svg>`,
+    text: 'The cake on the <b>main</b> input is the bottom; the cake on the <b>side</b> input is lifted on top. Build each layer as its own cake, then stack. Up to 4 layers – click the order picture to see every layer.',
+  },
+  decorator: {
+    title: 'New machine: Decorator',
+    svg: `<svg viewBox="0 0 190 60"><path d="M30 10a22 22 0 0 0 0 44 22 22 0 0 0 0-44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/><circle cx="30" cy="32" r="16" fill="#fffaf2"/>${ARROW(64, 32, '', '#c98a2e')}
+      <path d="M130 10a22 22 0 0 0 0 44 22 22 0 0 0 0-44z" fill="#f6dfa4" stroke="#c9a96a" stroke-width="1.5"/><circle cx="130" cy="32" r="16" fill="#fffaf2"/>
+      <circle cx="122" cy="26" r="3" fill="#e8344e"/><circle cx="138" cy="26" r="3" fill="#e8344e"/><circle cx="122" cy="40" r="3" fill="#e8344e"/><circle cx="138" cy="40" r="3" fill="#e8344e"/></svg>`,
+    text: 'Puts the chosen decoration on every piece of the top layer (pick it in its panel). <b>Frost first, then decorate.</b> Decorated pieces keep their decoration when you cut them.',
   },
 };
 
@@ -237,8 +256,8 @@ export class UI {
       if (!btn || !this.selected) return;
       if (btn.classList.contains('locked') && btn.dataset.kind) {
         // Explain which order unlocks this flavor / colour instead of doing nothing.
-        const kind = btn.dataset.kind === 'flavor' ? 'flavors' : 'frostings';
-        const table = kind === 'flavors' ? FLAVORS : FROSTINGS;
+        const kind = btn.dataset.kind === 'flavor' ? 'flavors' : btn.dataset.kind === 'decoration' ? 'decorations' : 'frostings';
+        const table = kind === 'flavors' ? FLAVORS : kind === 'decorations' ? DECORATIONS : FROSTINGS;
         const src = this.game.unlockSource(kind, btn.dataset.val);
         this.toast(`${table[btn.dataset.val].name} unlocks after the “${src}” order`, 'bad');
         this.audio.play('invalid');
@@ -400,7 +419,11 @@ export class UI {
     const sw = $('orderSwitch');
     const alt = om.alternative;
     sw.classList.toggle('hidden', !alt);
-    if (alt) sw.innerHTML = `⇄ <b>${alt.repeat ? 'Repeat' : 'New'}:</b> ${alt.name.replace(/ Contract #\d+$/, '')} · $${alt.perCake}/cake${alt.repeat ? ' <small>(same line as last time)</small>' : ''}`;
+    if (alt) {
+      sw.innerHTML = alt.repeat
+        ? `⇄ <b>Or repeat the last cake</b> · $${alt.perCake}/cake <small>(your line already makes it)</small>`
+        : `⇄ <b>Or the new puzzle:</b> ${alt.name} · $${alt.perCake}/cake`;
+    }
     if (this._orderId !== o.id + o.cake) {
       this._orderId = o.id + o.cake;
       this._orderCake = parseCakeKey(o.cake);
@@ -414,6 +437,10 @@ export class UI {
     $('orderPer').textContent = `$${o.perCake}`;
     $('orderReward').textContent = `$${fmt(o.reward)}`;
     $('orderHint').textContent = o.hint ? `💡 ${o.hint}` : '';
+    $('orderGoal').innerHTML = this._goalHtml(om.index, o);
+    const layers = this._orderCake.layers.length;
+    $('orderLayers').textContent = layers > 1 ? `${layers} layers` : '';
+    $('orderPanel').classList.toggle('boss', !!o.boss);
     this._showLastReject();
     requestAnimationFrame(() => drawCake($('orderCake'), this._orderCake, { rotation: this.viewRot, compass: true }));
     this._updateBonus(this.game.sim.time);
@@ -489,6 +516,8 @@ export class UI {
           cutter: 'West half (left in the order picture) → L exit · east half → R exit',
           rotator: { cw: 'Rotates 90° clockwise', ccw: 'Rotates 90° counter-clockwise', '180': 'Rotates 180°' }[e.config.mode],
           combiner: 'Joins two pieces that fit together',
+          stacker: 'Side-input cake goes on top of the main-input cake',
+          decorator: `Adds ${DECORATIONS[e.config.decoration]?.name.toLowerCase()} to the top layer`,
         }[e.type];
         rows.push(['Does', what]);
         rows.push(['Cycle time', `${e.processTime.toFixed(1)} s`]);
@@ -664,7 +693,7 @@ export class UI {
         <b>Space + drag · Right drag</b><span>Move the camera</span>
         <b>Q / E</b><span>Rotate the view 90°</span>
         <b>Page Up / Down · Home</b><span>Tilt the view · reset the view</span>
-        <b>1 – 8</b><span>Conveyor · Oven · Frosting · Cutter · Rotator · Combiner · Trash · Delivery</span>
+        <b>1 – 9 · 0</b><span>Conveyor · Oven · Frosting · Cutter · Rotator · Combiner · Trash · Delivery · Stacker · Decorator</span>
         <b>M · U · X · V</b><span>Move · Upgrade · Delete · Select</span>
         <b>Delete</b><span>Remove the selected machine</span>
         <b>P · Esc</b><span>Pause · Cancel / close</span>
@@ -730,10 +759,10 @@ export class UI {
 
   _configHtml(e, opt) {
     const cur = e.config[opt.key];
-    if (opt.kind === 'flavor' || opt.kind === 'frosting') {
-      const table = opt.kind === 'flavor' ? FLAVORS : FROSTINGS;
-      const unlocked = this.game.unlocks[opt.kind === 'flavor' ? 'flavors' : 'frostings'];
-      return `<div class="cfg-label">${opt.kind === 'flavor' ? 'Flavor' : 'Frosting color'}</div><div class="swatches">${
+    if (opt.kind === 'flavor' || opt.kind === 'frosting' || opt.kind === 'decoration') {
+      const table = opt.kind === 'flavor' ? FLAVORS : opt.kind === 'decoration' ? DECORATIONS : FROSTINGS;
+      const unlocked = this.game.unlocks[opt.kind === 'flavor' ? 'flavors' : opt.kind === 'decoration' ? 'decorations' : 'frostings'];
+      return `<div class="cfg-label">${opt.kind === 'flavor' ? 'Flavor' : opt.kind === 'decoration' ? 'Decoration' : 'Frosting color'}</div><div class="swatches">${
         Object.entries(table).map(([k, v]) => {
           const ok = unlocked.has(k);
           return `<button class="swatch ${k === cur ? 'on' : ''} ${ok ? '' : 'locked'}" data-kind="${opt.kind}" data-key="${opt.key}" data-val="${k}" title="${v.name}${ok ? '' : ' – locked'}" style="--c:${v.color}"></button>`;
@@ -754,7 +783,7 @@ export class UI {
       const m = cur || [true, true, true, true];
       const names = ['TL', 'TR', 'BL', 'BR'];
       const order = [0, 1, 3, 2]; // grid order: TL TR / BL BR
-      return `<div class="cfg-label">Frost quadrants ${ok ? '' : `<small>(level ${opt.minLevel})</small>`}</div><div class="quad-grid ${ok ? '' : 'locked'}">${
+      return `<div class="cfg-label">${e.type === 'decorator' ? 'Decorate' : 'Frost'} quadrants ${ok ? '' : `<small>(level ${opt.minLevel})</small>`}</div><div class="quad-grid ${ok ? '' : 'locked'}">${
         order.map((qi, i) => `<button class="quad ${m[qi] ? 'on' : ''}" ${ok ? '' : 'disabled'} data-q="${qi}" title="${QUADRANT_NAMES[qi]}">${names[i]}</button>`).join('')}</div>`;
     }
     return '';
@@ -822,6 +851,27 @@ export class UI {
     render();
   }
 
+  /** Short names for a set of unlocks ("Layer Stacker, Cherry"). */
+  _unlockNames(un) {
+    const out = [];
+    for (const m of un.machines || []) out.push(MACHINE_DEFS[m].name);
+    for (const f of un.flavors || []) out.push(`${FLAVORS[f].name} flavor`);
+    for (const d of un.decorations || []) out.push(DECORATIONS[d].name);
+    for (const f of un.frostings || []) out.push(`${FROSTINGS[f].name} frosting`);
+    for (const f of un.features || []) out.push(FEATURES[f]);
+    return out.join(', ');
+  }
+
+  /** "What am I working towards?" – shown on every order. */
+  _goalHtml(index, order) {
+    const next = nextUnlock(index);
+    if (order.boss && next?.inOrders === 1) return `★ <b>Showpiece!</b> Unlocks: ${this._unlockNames(next.unlocks)}`;
+    if (order.boss) return '★ <b>Showpiece!</b> Double reward';
+    if (next) return `🎁 ${next.inOrders === 1 ? 'This order unlocks' : `In ${next.inOrders} orders`}: <b>${this._unlockNames(next.unlocks)}</b>`;
+    const sp = nextShowpiece(index);
+    return sp ? `★ Next Showpiece in ${sp} order${sp === 1 ? '' : 's'} (double reward)` : '';
+  }
+
   /** Milestones panel: every long-term goal with its progress and reward. */
   openMilestones() {
     $('btnMilestones').classList.toggle('has-new', false);
@@ -848,8 +898,10 @@ export class UI {
     if (!list || !list.length) return '';
     const items = list.map((u) => {
       if (u.kind === 'machines') return `<div class="unlock-item">${ICONS[u.value] || ''}<span>${MACHINE_DEFS[u.value].name}</span></div>`;
-      const t = u.kind === 'flavors' ? FLAVORS[u.value] : FROSTINGS[u.value];
-      return `<div class="unlock-item"><i class="dot" style="--c:${t.color}"></i><span>${t.name} ${u.kind === 'flavors' ? 'flavor' : 'frosting'}</span></div>`;
+      if (u.kind === 'features') return `<div class="unlock-item"><span>🏗️ ${FEATURES[u.value]}</span></div>`;
+      const t = u.kind === 'flavors' ? FLAVORS[u.value] : u.kind === 'decorations' ? DECORATIONS[u.value] : FROSTINGS[u.value];
+      const what = u.kind === 'flavors' ? 'flavor' : u.kind === 'decorations' ? 'decoration' : 'frosting';
+      return `<div class="unlock-item"><i class="dot" style="--c:${t.color}"></i><span>${t.name} ${what}</span></div>`;
     }).join('');
     return `<div class="unlocks"><div class="unlocks-title">Unlocked!</div><div class="unlock-list">${items}</div></div>`;
   }
@@ -860,7 +912,7 @@ export class UI {
     let view = cake;
     let turns = 0;
     const rowsHtml = (c) => c.layers.map((l, li) => `${c.layers.length > 1 ? `<div class="help-section">Layer ${li + 1}</div>` : ''}${
-      l.quadrants.map((q, qi) => `<div class="row"><span>${QUADRANT_NAMES[qi]}</span><span>${q ? `<i class="dot" style="--c:${FLAVORS[q.flavor].color}"></i>${FLAVORS[q.flavor].name}${q.frosting ? ` · <i class="dot" style="--c:${FROSTINGS[q.frosting].color}"></i>${FROSTINGS[q.frosting].name} frosting` : ''}` : '<em>empty</em>'}</span></div>`).join('')}`).join('');
+      l.quadrants.map((q, qi) => `<div class="row"><span>${QUADRANT_NAMES[qi]}</span><span>${q ? `<i class="dot" style="--c:${FLAVORS[q.flavor].color}"></i>${FLAVORS[q.flavor].name}${q.frosting ? ` · <i class="dot" style="--c:${FROSTINGS[q.frosting].color}"></i>${FROSTINGS[q.frosting].name} frosting` : ''}${q.decoration ? ` · <i class="dot" style="--c:${DECORATIONS[q.decoration].color}"></i>${DECORATIONS[q.decoration].name}` : ''}` : '<em>empty</em>'}</span></div>`).join('')}`).join('');
     this.openModal(`
       <h2>${title}</h2>
       <div class="cake-insp"><canvas id="ciCake" width="180" height="180"></canvas></div>

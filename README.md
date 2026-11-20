@@ -177,6 +177,19 @@ game only through `Game` actions (`buildMachine`, `buildBeltPath`, `removeEntity
 - CrazyGames SDK v3 adapter, self-hosted font (no external requests), procedural background music
   with its own slider.
 
+## Endless play
+- After the 8 scripted orders, every contract asks for a **new generated cake**
+  (`src/gameplay/RecipeGenerator.js`): deterministic per contract number, a little harder each
+  time (more pieces, rotations, frostings, layers, decorations), capped so it stays a puzzle.
+  A test rebuilds 300 generated cakes with only the machines unlocked at that point.
+- Every 5th contract is a **Showpiece** (double reward); Showpieces and a few contracts unlock
+  new things (`CONTRACT_UNLOCKS`): Caramel, **Layer Stacker**, Red Velvet, **Decorator** with
+  sprinkles/cherry, cream swirl, strawberry, Pistachio, chocolate pieces, 3- and 4-layer cakes.
+- The order panel always shows the next goal ("In 2 orders: Layer Stacker" / "Next Showpiece
+  in 3 orders"); 6 extra milestones for long-term play.
+- New machines: **Layer Stacker** (1×2, main input = bottom, side input = top, max 4 layers) and
+  **Decorator** (1×1, decoration picked in its panel, per-quadrant from level 3). Hotkeys 9 / 0.
+
 ## Known limitations (honest status)
 - Rendering was **not** verified in a real GPU browser in this session (no network for Three.js
   in the build sandbox). Logic, UI flows, save/reload were verified headless with a Three.js stub,

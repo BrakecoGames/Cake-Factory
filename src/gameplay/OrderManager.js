@@ -5,7 +5,8 @@
  * Tracks the active order, validates delivered cakes and pays rewards.
  * Time is simulation time (seconds), so pausing pauses bonus timers too.
  */
-import { getOrderDef, orderIndexById, RETIRED_ORDERS, ORDER_DEFS, contractRecipeIndex, contractRecipeName } from './OrderDefs.js';
+import { getOrderDef, orderIndexById, RETIRED_ORDERS, ORDER_DEFS, LEGACY_CONTRACT_RECIPES } from './OrderDefs.js';
+import { isValidCakeData } from '../cakes/CakeModel.js';
 import { cakeKey, parseCakeKey } from '../cakes/CakeSerializer.js';
 import { diagnoseMismatch } from './Diagnose.js';
 
@@ -15,34 +16,36 @@ export class OrderManager {
     this.delivered = 0;
     this.startedAt = 0;
     this.completed = []; // { id, name, bonus: bool, time }
-    this.recipe = null;     // chosen recipe for the current contract (null = rotation)
-    this.lastRecipe = null; // recipe of the last finished contract
+    this.recipe = null;     // cake key the current contract was switched to (null = its new cake)
+    this.lastRecipe = null; // cake key of the last finished contract
+    this.legacy = false;    // current contract keeps its pre-endless cake (old save)
     this.listeners = new Set();
   }
 
-  get current() { return getOrderDef(this.index, this.recipe); }
+  get current() { return getOrderDef(this.index, this.recipe, this.legacy); }
 
   get isContract() { return this.index >= ORDER_DEFS.length; }
 
   /**
-   * The other contract on offer (repeat the previous recipe at lower pay), or
-   * null. Only before the first cake of the contract, so no progress is lost.
+   * The other offer for the current contract, or null: "repeat the previous
+   * contract's cake at lower pay" (or back to the new cake). Only before the
+   * first cake, so no progress is lost, and never for a Showpiece.
    */
   get alternative() {
-    if (!this.isContract || this.delivered > 0 || this.lastRecipe == null) return null;
-    const n = this.index - ORDER_DEFS.length + 1;
-    const rot = contractRecipeIndex(n);
-    if (this.lastRecipe === rot) return null;
-    const other = this.recipe == null ? this.lastRecipe : rot;
-    return getOrderDef(this.index, other);
+    if (!this.isContract || this.delivered > 0 || !this.lastRecipe) return null;
+    if (this.recipe) return getOrderDef(this.index, null);
+    if (this.legacy) return null;
+    const cur = this.current;
+    if (cur.boss || cur.cake === this.lastRecipe) return null;
+    return getOrderDef(this.index, this.lastRecipe);
   }
 
   /** Switch the current contract to the alternative offer. */
   switchContract() {
     const alt = this.alternative;
     if (!alt) return false;
-    const n = this.index - ORDER_DEFS.length + 1;
-    this.recipe = alt.recipe === contractRecipeIndex(n) ? null : alt.recipe;
+    this.recipe = alt.repeat ? alt.cake : null;
+    this.legacy = false;
     this._emit({ type: 'orderProgress', order: this.current, delivered: 0 });
     return true;
   }
@@ -77,8 +80,9 @@ export class OrderManager {
       reward += completionReward;
       this.completed.push({ id: order.id, name: order.name, bonus, time: Math.round(elapsed * 10) / 10 });
       const finished = order;
-      if (this.isContract) this.lastRecipe = finished.recipe ?? null;
+      if (this.isContract) this.lastRecipe = finished.cake;
       this.recipe = null;
+      this.legacy = false;
       this.index++;
       this.delivered = 0;
       this.startedAt = now;
@@ -90,7 +94,7 @@ export class OrderManager {
   }
 
   serialize() {
-    return { id: this.current.id, index: this.index, delivered: this.delivered, startedAt: this.startedAt, completed: this.completed.slice(), recipe: this.recipe, lastRecipe: this.lastRecipe };
+    return { id: this.current.id, index: this.index, delivered: this.delivered, startedAt: this.startedAt, completed: this.completed.slice(), recipe: this.recipe, lastRecipe: this.lastRecipe, legacy: this.legacy, v: 2 };
   }
 
   load(s, now = 0) {
@@ -98,12 +102,25 @@ export class OrderManager {
     const byId = typeof s.id === 'string' ? orderIndexById(s.id) : -1;
     this.index = byId >= 0 ? byId : Math.max(0, s.index | 0);
     const retired = typeof s.id === 'string' && !!RETIRED_ORDERS[s.id];
-    this.delivered = retired ? 0 : Math.max(0, Math.min(s.delivered | 0, this.current.quantity - 1));
     // Resume the bonus clock relative to the restored simulation time.
     this.startedAt = Number.isFinite(s.startedAt) ? s.startedAt : now;
     this.completed = Array.isArray(s.completed) ? s.completed.filter((c) => c && typeof c.id === 'string') : [];
-    const ri = (v) => (Number.isInteger(v) && contractRecipeName(v) ? v : null);
+    // Saves from before endless orders stored a recipe index; newer ones a cake key.
+    const ri = (v) => {
+      if (Number.isInteger(v)) return LEGACY_CONTRACT_RECIPES[v] ?? null;
+      if (typeof v !== 'string') return null;
+      try { return isValidCakeData(parseCakeKey(v)) ? v : null; } catch { return null; }
+    };
     this.lastRecipe = ri(s.lastRecipe);
     this.recipe = this.isContract ? ri(s.recipe) : null;
+    this.legacy = this.isContract && !!s.legacy && !!this.recipe;
+    if (this.isContract && s.v !== 2 && !this.recipe) {
+      // Saved before endless orders: the running contract keeps its rotation cake.
+      const n = this.index - ORDER_DEFS.length + 1;
+      this.recipe = LEGACY_CONTRACT_RECIPES[(n - 1) % LEGACY_CONTRACT_RECIPES.length];
+      this.legacy = true;
+    }
+    // After the cake is restored: its quantity bounds the progress.
+    this.delivered = retired ? 0 : Math.max(0, Math.min(s.delivered | 0, this.current.quantity - 1));
   }
 }

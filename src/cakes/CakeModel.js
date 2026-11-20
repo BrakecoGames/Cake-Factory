@@ -26,6 +26,9 @@ export const FLAVORS = Object.freeze({
   strawberry: { name: 'Strawberry', color: '#f49ab0' },
   lemon:      { name: 'Lemon',      color: '#f7e45e' },
   blueberry:  { name: 'Blueberry',  color: '#7d8ee8' },
+  caramel:    { name: 'Caramel',    color: '#d99a4e' },
+  redvelvet:  { name: 'Red Velvet', color: '#b8324a' },
+  pistachio:  { name: 'Pistachio',  color: '#a9d37a' },
 });
 
 export const FROSTINGS = Object.freeze({
@@ -39,11 +42,11 @@ export const FROSTINGS = Object.freeze({
 });
 
 export const DECORATIONS = Object.freeze({
-  cherry:     { name: 'Cherry' },
-  sprinkles:  { name: 'Sprinkles' },
-  chocolate:  { name: 'Chocolate pieces' },
-  strawberry: { name: 'Strawberry' },
-  swirl:      { name: 'Cream swirl' },
+  cherry:     { name: 'Cherry',           color: '#e8344e' },
+  sprinkles:  { name: 'Sprinkles',        color: '#ff9ad5' },
+  chocolate:  { name: 'Chocolate pieces', color: '#5a3221' },
+  strawberry: { name: 'Strawberry',       color: '#ff4d6d' },
+  swirl:      { name: 'Cream swirl',      color: '#fffaf2' },
 });
 
 let nextCakeId = 1;

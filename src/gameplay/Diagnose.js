@@ -7,7 +7,7 @@
  */
 import { cakeKey } from '../cakes/CakeSerializer.js';
 import { rotateCW, rotateCCW, rotate180 } from '../cakes/CakeOperations.js';
-import { cloneCake, FROSTINGS } from '../cakes/CakeModel.js';
+import { cloneCake, FROSTINGS, DECORATIONS } from '../cakes/CakeModel.js';
 
 /** Swap west and east halves (TL↔TR, BL↔BR) on every layer. */
 export function mirrorLeftRight(cake) {
@@ -27,6 +27,10 @@ export function diagnoseMismatch(delivered, ordered) {
   if (delivered.layers.length !== ordered.layers.length) {
     return `Wrong number of layers (${delivered.layers.length} instead of ${ordered.layers.length})`;
   }
+  if (delivered.layers.length > 1) {
+    const flipped = { layers: delivered.layers.slice().reverse() };
+    if (cakeKey(flipped) === want) return 'Layers are upside down – swap the Layer Stacker\'s inputs (side input goes on top)';
+  }
   if (cakeKey(mirrorLeftRight(delivered)) === want) {
     return 'Left and right halves are swapped – keep the other exit (L ↔ R) at one of your cutters';
   }
@@ -45,6 +49,14 @@ export function diagnoseMismatch(delivered, ordered) {
     if (!want.length && got.length) return 'No frosting wanted – take the Frosting Machine out of this line';
     if (want.length === 1 && got.length === 1 && want[0] !== got[0]) return `Wrong frosting colour: ${name(got[0])} instead of ${name(want[0])}`;
     return 'The frosting does not match';
+  }
+  const decosOf = (c) => [...new Set(c.layers.flatMap((l) => l.quadrants).filter((p) => p && p.decoration).map((p) => p.decoration))].sort();
+  const wd = decosOf(ordered), gd = decosOf(delivered);
+  if (wd.join() !== gd.join()) {
+    const name = (k) => DECORATIONS[k]?.name.toLowerCase() ?? k;
+    if (wd.length && !gd.length) return `Needs ${wd.map(name).join(' + ')} – add a Decorator to the line`;
+    if (!wd.length && gd.length) return 'No decorations wanted on this cake';
+    return `Wrong decoration: ${gd.map(name).join(' + ')} instead of ${wd.map(name).join(' + ')}`;
   }
   return 'Right ingredients, wrong arrangement';
 }

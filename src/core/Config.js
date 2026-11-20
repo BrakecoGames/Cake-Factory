@@ -69,6 +69,7 @@ export const UPGRADES = {
   FEATURES: {
     rotator: { 2: 'Counter-clockwise turning', 3: '180° turning' },
     froster: { 3: 'Frost selected quadrants only' },
+    decorator: { 3: 'Decorate selected quadrants only' },
   },
 };
 

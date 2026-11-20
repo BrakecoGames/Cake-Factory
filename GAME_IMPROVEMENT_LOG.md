@@ -664,3 +664,53 @@ build OK, tutorial with real input on desktop and iPhone 13, no console errors. 
 tutorial scene 142 → 174. Real-GPU look and FPS still to be checked on a device.
 
 **Scores.** Visual quality 8 → 8.5, First impression 8.5 → 9 (screenshots; taste is the user's call).
+
+---
+
+## Iteration 21 – Endless puzzle orders, two new machines, always a next goal (user request)
+
+**Problem.** After 8 scripted orders the game cycled through 6 fixed contract recipes. Nothing new
+was ever asked or unlocked, so there was little reason to keep playing.
+
+**Change.**
+- `src/gameplay/RecipeGenerator.js` (pure, deterministic): generates the cake of every endless
+  contract from the unlocked ingredients and machines. Difficulty score (distinct pieces,
+  rotations, trashing, frostings, decorations, extra layers) targets `3 + 0.42·n` (capped at 19,
+  +3 on Showpieces); the previous contract's cake is never repeated. Fair-puzzle rules: frosting
+  and decorations only on the visible top layer; multi-layer cakes have full layers.
+- Every 5th contract is a **Showpiece** (gold card, double reward, no "repeat" shortcut).
+  Unlock schedule: #2 Caramel · #5 **Layer Stacker** · #8 Red Velvet · #10 **Decorator** +
+  sprinkles + cherry · #13 cream swirl · #15 strawberry · #18 Pistachio · #20 chocolate pieces +
+  3-layer cakes · #30 4-layer cakes. After that Showpieces keep coming every 5 orders.
+- New machines with 3D models and animation: **Layer Stacker** (gantry robot lifts the top cake;
+  refuses stacks over 4 layers) and **Decorator** (hopper sprinkles the chosen decoration onto a
+  turntable). Config + per-quadrant mask from level 3, upgrades, "how it works" cards, toolbar
+  icons, inspector texts.
+- Order panel: "🎁 In N orders: <unlock>" or "★ Next Showpiece in N orders"; "N layers" badge on
+  the cake picture; generated hints; the cake inspector lists decorations per piece.
+- Rejection reasons for "layers upside down" and wrong / missing decorations.
+- 6 extra milestones (Showpieces 1/5/20, orders 30/60, 5,000 cakes).
+- Contract choice now stores the repeated cake (key) instead of a recipe index. **Saves:** old
+  recipe indices are mapped to their cakes, and a contract that was running in an older save
+  keeps its old cake at full pay ("Classic Contract #n").
+
+**Files.** New: `src/gameplay/RecipeGenerator.js`, `tests/endless.test.js`. Changed:
+`src/gameplay/OrderDefs.js`, `src/gameplay/OrderManager.js`, `src/gameplay/Diagnose.js`,
+`src/gameplay/MilestoneManager.js`, `src/core/Game.js`, `src/core/Config.js`,
+`src/cakes/CakeModel.js`, `src/machines/MachineDefs.js`, `src/machines/Processors.js`,
+`src/machines/Machine.js`, `src/simulation/FactorySimulation.js`, `src/rendering/ModelFactory.js`,
+`src/rendering/FactoryRenderer.js`, `src/ui/UI.js`, `index.html`, `src/styles.css`, `README.md`,
+`tests/gameplay.test.js`.
+
+**Tests.** 108/108. New: a constructive solver rebuilds all 300 first generated cakes using only
+the machine operations unlocked at that point and gets exactly the ordered cake; unlocked
+ingredients only; always a next goal; Stacker stacks / refuses >4 layers; Decorator decorates;
+Showpiece #5 unlocks the Stacker (celebration lists it); **a real factory line (2 ovens → froster →
+stacker → decorator → delivery) completes a 2-layer decorated contract and gets paid**; legacy
+save contracts keep their cake; new rejection reasons. Browser: new machines rendered and working,
+order panel goal lines, Showpiece styling, decorator inspector, contract switch, old save,
+layouts on 5 desktop sizes + 8 phone profiles, tutorial regressions – no console errors.
+Generation: 300 contracts in 0.2 s, then cached (10,000 reads in 1 ms).
+
+**Scores.** Progression 8 → 9, Retention potential 8 → 9, Gameplay 8 → 8.5 (estimates until real
+players have played).

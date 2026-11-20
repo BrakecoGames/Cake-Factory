@@ -22,10 +22,10 @@ import { getDef } from '../machines/MachineDefs.js';
 import { Machine, STATUS } from '../machines/Machine.js';
 import { Oven } from '../machines/Oven.js';
 import { DeliveryStation } from '../machines/DeliveryStation.js';
-import { Froster, Cutter, Rotator, Combiner, TrashBin } from '../machines/Processors.js';
+import { Froster, Cutter, Rotator, Combiner, Stacker, Decorator, TrashBin } from '../machines/Processors.js';
 import { serializeCake, deserializeCake } from '../cakes/CakeSerializer.js';
 
-const MACHINE_CLASSES = { oven: Oven, delivery: DeliveryStation, froster: Froster, cutter: Cutter, rotator: Rotator, combiner: Combiner, trash: TrashBin };
+const MACHINE_CLASSES = { oven: Oven, delivery: DeliveryStation, froster: Froster, cutter: Cutter, rotator: Rotator, combiner: Combiner, stacker: Stacker, decorator: Decorator, trash: TrashBin };
 
 let nextItemId = 1;
 
