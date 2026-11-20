@@ -16,8 +16,7 @@ import { BELT } from '../core/Config.js';
 import { CakeRenderer } from '../cakes/CakeRenderer.js';
 import { EffectsManager } from './EffectsManager.js';
 import {
-  MODEL_BUILDERS, buildAlertSprite, arrowGeometry, textures, roundedBox, cylinder, mat, PALETTE,
-} from './ModelFactory.js';
+  MODEL_BUILDERS, buildAlertSprite, arrowGeometry, textures, roundedBox, cylinder, mat, PALETTE, contactShadowMaterial } from './ModelFactory.js';
 import { FROSTINGS, FLAVORS } from '../cakes/CakeModel.js';
 import { ConveyorRenderer, SURF } from './ConveyorRenderer.js';
 import { ShopRenderer } from './ShopRenderer.js';
@@ -31,6 +30,9 @@ const OMNI = new Set(['delivery', 'trash']);
 
 const CAKE_Y = SURF + 0.005;
 const dirAngle = (d) => -d * Math.PI / 2; // rotation.y that points local +X along dir
+
+/** Unit floor quad (XZ plane) for contact shadows. */
+const CONTACT_PLANE = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
 export class FactoryRenderer {
   constructor(sceneManager, game) {
@@ -108,7 +110,7 @@ export class FactoryRenderer {
     const t = textures();
 
     // Outer bakery floor + factory tiles.
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 12, H + 12), mat('#f3d4e0', { roughness: 0.9 }));
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 12, H + 12), mat('#ad7f9f', { roughness: 0.9 }));
     outer.rotation.x = -Math.PI / 2; outer.position.y = -0.02; outer.receiveShadow = true;
     const floorTex = t.floor.clone(); floorTex.needsUpdate = true; floorTex.repeat.set(W / 2, H / 2);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 }));
@@ -123,7 +125,7 @@ export class FactoryRenderer {
     for (let y = 0; y <= H; y++) pts.push(-W / 2, 0.003, y - H / 2, W / 2, 0.003, y - H / 2);
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    this.gridLines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: '#d79aae', transparent: true, opacity: 0.25 }));
+    this.gridLines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: '#7d5873', transparent: true, opacity: 0.16 }));
     env.add(this.gridLines);
 
     // Walls on all four sides; only the two far from the camera are shown.
@@ -261,6 +263,11 @@ export class FactoryRenderer {
 
   _createMachineView(e) {
     const built = MODEL_BUILDERS[e.type]();
+    // Contact shadow under the footprint (model space: w along X, h along Z at rotation 0).
+    const shade = new THREE.Mesh(CONTACT_PLANE, contactShadowMaterial());
+    shade.scale.set(e.def.w + 0.45, 1, e.def.h + 0.45);
+    shade.position.y = 0.006; shade.renderOrder = -1;
+    built.group.add(shade);
     const holder = new THREE.Group();
     holder.add(built.group);
     const alert = buildAlertSprite();
@@ -698,7 +705,7 @@ export class FactoryRenderer {
       if (e.type === 'oven') {
         const working = e.status === STATUS.WORKING;
         if (v.parts.iconMat) v.parts.iconMat.color.set(FLAVORS[e.config.flavor]?.color || '#ffe6a3');
-        v.parts.glowMat.emissiveIntensity = working ? 0.6 + e.progress * 1.6 + Math.sin(this.time * 9) * 0.15 : 0.25;
+        v.parts.glowMat.emissiveIntensity = working ? 0.6 + e.progress * 1.6 + Math.sin(this.time * 9) * 0.15 : 0.5;
         if (working) {
           v.parts.gear.rotation.z += dt * 3;
           v.steamT -= dt;

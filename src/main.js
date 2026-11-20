@@ -122,6 +122,11 @@ async function boot() {
     }
     // During the tutorial the customer at the Cake Shop counter is part of the story: keep it in view.
     if (game.tutorial.active) { const c = fr.shop.standPos; pts.push(c.clone(), c.clone().setY(2.6)); }
+    // An empty factory (everything removed): frame the whole floor instead.
+    if (!pts.length) {
+      const W = game.sim.width, H = game.sim.height;
+      pts.push(fr.gridToWorld(0, 0, 0), fr.gridToWorld(W, 0, 0), fr.gridToWorld(0, H, 0), fr.gridToWorld(W, H, 0));
+    }
     camera.setBounds(game.sim.width / 2, game.sim.height / 2);
     // Extra margin (in cells) so the line between the machines is easy to hit.
     const grow = 1.5, mid = pts.reduce((a, p) => a.add(p), pts[0].clone().multiplyScalar(0)).multiplyScalar(1 / Math.max(1, pts.length));

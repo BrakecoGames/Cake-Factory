@@ -12,8 +12,8 @@ import { RENDER } from '../core/Config.js';
 const SURF = RENDER.BELT_SURF;
 
 export const PALETTE = {
-  cream: '#fff6ea', pink: '#ff8fb1', pinkDark: '#e9668f', choc: '#6b3f2a', mint: '#7fdcb0', mintDark: '#4fbf90',
-  vanilla: '#ffe6a3', sky: '#8fcbff', lavender: '#c9b6ff', white: '#ffffff', metal: '#d8dde6', dark: '#3b2f3a',
+  cream: '#fff1e2', pink: '#ff6f9f', pinkDark: '#d94a7c', choc: '#5e3424', mint: '#4fd3a0', mintDark: '#25a874',
+  vanilla: '#ffd36e', sky: '#5fb3ff', lavender: '#a58cff', white: '#ffffff', metal: '#b7c0cd', dark: '#3b2f3a',
 };
 
 const geoCache = new Map();
@@ -57,16 +57,56 @@ function canvasTexture(w, h, draw, { repeat = false } = {}) {
   return t;
 }
 
+let _contactMat = null;
+/**
+ * Soft dark patch laid on the floor under machines and belts ("contact shadow").
+ * Grounds objects on every quality level, including Low where real shadows are off.
+ */
+export function contactShadowMaterial() {
+  if (_contactMat) return _contactMat;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 6, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  _contactMat = new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: tex, transparent: true, opacity: 0.42, depthWrite: false });
+  return _contactMat;
+}
+
+let _stripMat = null;
+/** Contact shadow for belts: soft across the belt, even along it (segments join seamlessly). */
+export function contactStripMaterial() {
+  if (_stripMat) return _stripMat;
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+  gr.addColorStop(0.7, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
+  const tex = new THREE.CanvasTexture(c);
+  _stripMat = new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: tex, transparent: true, opacity: 0.36, depthWrite: false });
+  return _stripMat;
+}
+
 let _textures = null;
 export function textures() {
   if (_textures) return _textures;
   _textures = {
     floor: canvasTexture(128, 128, (g, w, h) => {
-      g.fillStyle = '#fff3e8'; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#ffe4ea'; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2);
-      g.strokeStyle = 'rgba(214,160,170,0.35)'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, w - 3, h - 3);
-      g.fillStyle = 'rgba(255,255,255,0.6)';
-      for (const [x, y] of [[w / 4, h / 4], [w * 0.75, h * 0.75]]) { g.beginPath(); g.arc(x, y, 3, 0, Math.PI * 2); g.fill(); }
+      // Dusty-mauve tiles with a bevel (light top-left edge, dark bottom-right) so the floor has relief.
+      const c = w / 2;
+      for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
+        const x = tx * c, y = ty * c;
+        g.fillStyle = (tx + ty) % 2 ? '#b897b3' : '#c4a6bf'; g.fillRect(x, y, c, c);
+        g.fillStyle = 'rgba(255,255,255,0.28)'; g.fillRect(x, y, c, 3); g.fillRect(x, y, 3, c);
+        g.fillStyle = 'rgba(70,35,65,0.22)'; g.fillRect(x, y + c - 3, c, 3); g.fillRect(x + c - 3, y, 3, c);
+      }
+      // Fine speckle, like terrazzo.
+      for (let i = 0; i < 90; i++) {
+        g.fillStyle = i % 3 ? 'rgba(255,255,255,0.18)' : 'rgba(90,50,80,0.14)';
+        g.fillRect((i * 37) % w, (i * 53 + (i >> 2) * 7) % h, 2, 2);
+      }
     }, { repeat: true }),
     belt: canvasTexture(64, 64, (g, w, h) => {
       g.fillStyle = '#5b5563'; g.fillRect(0, 0, w, h);
@@ -78,7 +118,7 @@ export function textures() {
     blueBelt: canvasTexture(128, 64, (g, w, h) => {
       // Smooth blue modular belt with faint module seams; a soft arrow shows the direction.
       const gr = g.createLinearGradient(0, 0, 0, h);
-      gr.addColorStop(0, '#3f86e6'); gr.addColorStop(0.5, '#4a91ee'); gr.addColorStop(1, '#3f86e6');
+      gr.addColorStop(0, '#2a6fd6'); gr.addColorStop(0.5, '#3d89f0'); gr.addColorStop(1, '#2a6fd6');
       g.fillStyle = gr; g.fillRect(0, 0, w, h);
       g.fillStyle = 'rgba(20, 60, 140, 0.18)';
       for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 2, h);
@@ -112,9 +152,10 @@ export function textures() {
       g.fillStyle = '#fff'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', w / 2, h / 2 + 2);
     }),
     wall: canvasTexture(128, 128, (g, w, h) => {
-      g.fillStyle = '#ffd9e3'; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#ffcbd8'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 16, h);
-      g.fillStyle = '#fff6ea'; g.fillRect(0, h * 0.78, w, h * 0.22);
+      g.fillStyle = '#f2adc4'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#e897b2'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 16, h);
+      g.fillStyle = '#fff0e2'; g.fillRect(0, h * 0.78, w, h * 0.22);
+      g.fillStyle = '#c96f93'; g.fillRect(0, h * 0.76, w, h * 0.03);
     }, { repeat: true }),
   };
   return _textures;
@@ -134,7 +175,7 @@ export function buildOven() {
   const chimneyCap = mesh(cylinder(0.11, 0.11, 0.05), mat(PALETTE.choc), -0.22, 1.02, -0.2);
   // Door on the +X face with a glowing window.
   const doorFrame = mesh(roundedBox(0.04, 0.42, 0.6, 0.02), mat(PALETTE.cream), 0.44, 0.34, 0);
-  const glowMat = new THREE.MeshStandardMaterial({ color: '#3a1d12', emissive: '#ff8a3d', emissiveIntensity: 0.2, roughness: 0.2 });
+  const glowMat = new THREE.MeshStandardMaterial({ color: '#3a1d12', emissive: '#ff8a3d', emissiveIntensity: 0.55, roughness: 0.2 });
   const window_ = mesh(roundedBox(0.03, 0.28, 0.44, 0.02), glowMat, 0.46, 0.36, 0, false);
   const handle = mesh(roundedBox(0.04, 0.04, 0.34, 0.015), mat(PALETTE.metal, { metalness: 0.6, roughness: 0.3 }), 0.5, 0.58, 0);
   // Dial gear on the side (spins while baking).

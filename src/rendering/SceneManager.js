@@ -5,6 +5,10 @@
  * Renderer, scene, lights, quality levels, resize and WebGL context loss.
  */
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/** Strength of the generated reflection environment (1 = Three.js studio default). */
+const ENV_STRENGTH = 0.3;
 
 export const QUALITY = {
   low:    { pixelRatio: 1,   shadows: false, shadowSize: 0,    particles: 0.35 },
@@ -32,7 +36,7 @@ export class SceneManager {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
     this.canvas = this.renderer.domElement;
@@ -40,20 +44,36 @@ export class SceneManager {
     this.canvas.addEventListener('webglcontextrestored', () => this.onContextRestored(), false);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#fbe3ea');
+    this.scene.background = new THREE.Color('#c895b3');
 
-    this.hemi = new THREE.HemisphereLight('#fff6ee', '#d9b8d8', 1.25);
+    // Soft reflections for metal and glossy surfaces (generated once, no image files).
+    try {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      const room = new RoomEnvironment(this.renderer);
+      // Dim the studio: it should add reflections and a little bounce light, not wash everything out.
+      const k = ENV_STRENGTH;
+      room.traverse((o) => {
+        if (o.isLight) o.intensity *= k;
+        else if (o.material?.color) o.material.color.multiplyScalar(k);
+      });
+      this.scene.environment = pmrem.fromScene(room, 0.04).texture;
+      room.traverse?.((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+      pmrem.dispose();
+    } catch { /* reflections are optional */ }
+
+    // Warm key light + cool fill: light and shadow sides get different colours, which reads as depth.
+    this.hemi = new THREE.HemisphereLight('#ffeef6', '#6b4f6e', 0.55);
     this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight('#fff1dc', 2.1);
-    this.sun.position.set(-9, 18, 7);
-    this.sun.shadow.camera.left = -16; this.sun.shadow.camera.right = 16;
-    this.sun.shadow.camera.top = 16; this.sun.shadow.camera.bottom = -16;
-    this.sun.shadow.camera.near = 1; this.sun.shadow.camera.far = 50;
+    this.sun = new THREE.DirectionalLight('#ffe0bd', 2.9);
+    this.sun.position.set(-11, 15, 9);
+    this.sun.shadow.camera.left = -18; this.sun.shadow.camera.right = 18;
+    this.sun.shadow.camera.top = 18; this.sun.shadow.camera.bottom = -18;
+    this.sun.shadow.camera.near = 1; this.sun.shadow.camera.far = 60;
     this.sun.shadow.bias = -0.0008;
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
-    const fill = new THREE.DirectionalLight('#ffd6ec', 0.55);
-    fill.position.set(10, 8, -6);
+    const fill = new THREE.DirectionalLight('#a9b8ff', 0.75);
+    fill.position.set(11, 7, -9);
     this.scene.add(fill);
 
     window.addEventListener('resize', () => this.resize());

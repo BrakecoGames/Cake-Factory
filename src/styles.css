@@ -248,7 +248,7 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
 
 /* ------------------------------------------------ screens & modals */
 .screen { position: fixed; inset: 0; display: grid; place-items: center; z-index: 30; }
-#startScreen { background: rgba(255, 232, 240, .55); backdrop-filter: blur(3px); }
+#startScreen { background: linear-gradient(160deg, rgba(255, 170, 205, .28), rgba(120, 60, 150, .38)); backdrop-filter: blur(3px) saturate(1.15); }
 .start-bg { position: absolute; inset: 0; background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.7), transparent 40%), radial-gradient(circle at 80% 80%, rgba(201,182,255,.45), transparent 45%); }
 .start-card { position: relative; text-align: center; background: var(--card); border-radius: 30px; padding: 26px 40px 18px; box-shadow: var(--shadow); max-width: min(480px, calc(100vw - 24px)); animation: pop2 .4s; }
 .start-logo { width: 130px; height: 108px; margin-top: -60px; filter: drop-shadow(0 8px 10px rgba(160, 60, 90, .25)); animation: float 3s ease-in-out infinite; }
@@ -470,3 +470,6 @@ kbd { font-family: inherit; font-size: 0.72em; background: rgba(74, 44, 58, 0.1)
   .tagline { margin: 6px 0 10px; font-size: 13.5px; }
 }
 .order-rewards > div { white-space: nowrap; }
+
+/* Soft vignette over the 3D view: darker edges pull the eye to the factory and add depth. */
+#viewport::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 70% at 50% 48%, rgba(60, 15, 50, 0) 55%, rgba(60, 15, 50, 0.26) 100%); }

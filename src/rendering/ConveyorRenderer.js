@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { DX, DY, opposite, rotatePoint } from '../simulation/Grid.js';
 import { RENDER, BELT } from '../core/Config.js';
-import { textures, roundedBox } from './ModelFactory.js';
+import { textures, roundedBox, contactShadowMaterial, contactStripMaterial } from './ModelFactory.js';
 
 export const SURF = RENDER.BELT_SURF;
 const BW = 0.74;                 // belt width
@@ -27,7 +27,7 @@ const TRIM = 0.12;
 const ROLLER_R = 0.055;          // end roller radius (belt surface is tangent to its top)               // secondary machine paths stop short of the stage
 const dirAngle = (d) => -d * Math.PI / 2;
 
-const GUARD = new THREE.Color('#f7f6f2');
+const GUARD = new THREE.Color('#ecebf1');
 const GUARD_MACHINE = new THREE.Color('#eceaf0');
 const GUARD_BLOCKED = new THREE.Color('#ff7b8d');
 const GUARD_REPLACED = new THREE.Color('#ffd84d');
@@ -148,10 +148,16 @@ export class ConveyorRenderer {
   }
 
   _alloc(segments) {
-    const old = [this.guard, this.under, this.leg, this.foot, this.drum, this.bearing, this.hub, ...(this.cTop || []), ...(this.cGuard || []), ...(this.cUnder || []), ...this.topMeshes.values()];
+    const old = [this.shade, this.shadeC, this.guard, this.under, this.leg, this.foot, this.drum, this.bearing, this.hub, ...(this.cTop || []), ...(this.cGuard || []), ...(this.cUnder || []), ...this.topMeshes.values()];
     for (const m of old) if (m) { this.scene.remove(m); m.dispose(); }
     this.topMeshes.clear();
     this.capacity = segments;
+    // Contact shadows (one soft strip per straight segment, one patch per corner).
+    const shadeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    this.shade = this._inst(shadeGeo, contactStripMaterial(), segments, { shadow: false });
+    this.shadeC = this._inst(shadeGeo, contactShadowMaterial(), segments, { shadow: false });
+    this.shade.receiveShadow = this.shadeC.receiveShadow = false;
+    this.shade.renderOrder = this.shadeC.renderOrder = -1;
     this.guard = this._inst(this.geo.guard, this.guardMat, segments * 2, { color: true });
     this.under = this._inst(this.geo.under, this.aluMat, segments, { shadow: false });
     this.leg = this._inst(this.geo.leg, this.aluMat, segments * 2);
@@ -216,6 +222,9 @@ export class ConveyorRenderer {
     const top = this._top(len);
     put(top, top.count++, 0, 0.002, 0);
     put(this.under, this.n.seg, 0, -0.03, 0, len);
+    this._m2.compose(this._v.set(0, -(SURF + lift) + 0.005, 0), this._qI, this._s.set(len, 1, BW + 0.5));
+    this._m.multiplyMatrices(this._base, this._m2);
+    this.shade.setMatrixAt(this.n.seg, this._m);
     for (const side of [-1, 1]) {
       this.guardOwner[this.n.guard] = owner;
       put(this.guard, this.n.guard++, 0, (GUARD_UP - GUARD_DOWN) / 2, side * (BW / 2 + GUARD_W / 2), len);
@@ -246,6 +255,8 @@ export class ConveyorRenderer {
     this.cUnder[k].setMatrixAt(i, this._m);
     this.cGuard[k].setMatrixAt(i, this._m);
     this.cornerOwner[k][i] = b;
+    this._m.compose(this._v.set(c.x, 0.005, c.z), this._qI, this._s.set(0.95, 1, 0.95));
+    this.shadeC.setMatrixAt(this.n.shadeC++, this._m);
     // Legs under the middle of the arc.
     const { K } = cornerFrame(right);
     const mid = right ? -Math.PI / 4 : Math.PI / 4;
@@ -262,7 +273,7 @@ export class ConveyorRenderer {
 
   rebuild(sim) {
     this.sim = sim;
-    this.n = { seg: 0, guard: 0, cap: 0, bear: 0, leg: 0, foot: 0, corner: [0, 0] };
+    this.n = { seg: 0, guard: 0, cap: 0, bear: 0, leg: 0, foot: 0, corner: [0, 0], shadeC: 0 };
     for (const m of this.topMeshes.values()) m.count = 0;
     this.cornerInfo.clear();
     this.guardOwner = [];
@@ -335,7 +346,9 @@ export class ConveyorRenderer {
       }
     }
 
-    this.under.count = this.n.seg; this.guard.count = this.n.guard;
+    this.under.count = this.shade.count = this.n.seg; this.guard.count = this.n.guard;
+    this.shadeC.count = this.n.shadeC;
+    this.shade.instanceMatrix.needsUpdate = this.shadeC.instanceMatrix.needsUpdate = true;
     this.drum.count = this.n.cap; this.bearing.count = this.n.bear; this.hub.count = this.n.bear;
     this.leg.count = this.n.leg; this.foot.count = this.n.foot;
     for (let k = 0; k < 2; k++) { this.cTop[k].count = this.cUnder[k].count = this.cGuard[k].count = this.n.corner[k]; }

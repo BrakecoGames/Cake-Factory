@@ -631,3 +631,36 @@ have played.
 
 **Saves.** Format stays v4; every new field is optional; a save made by the original version is a
 permanent test fixture. No user data was removed.
+
+---
+
+## Iteration 20 – Colour, contrast and depth (user request: "everything looks flat")
+
+**Problem.** Near-white floor, strong uniform hemisphere light and no reflections: machines,
+belts and floor had almost the same brightness, so the scene read as flat. On Low quality
+(phones) there were no shadows at all, so objects looked like they floated. The start screen laid
+a milky white haze over the scene.
+
+**Change.**
+- Lighting: weaker hemisphere light, stronger warm key light from lower (longer shadows), cool
+  lavender-blue fill from the opposite side (warm/cool contrast), and a dimmed generated studio
+  environment (`RoomEnvironment`, strength 0.3) so metal and glossy parts get highlights.
+- Floor: mid-tone dusty-mauve tiles with a bevel and terrazzo speckle; darker surround and
+  background; richer striped walls with a trim line; deeper blue belts; slightly darker guards.
+- Palette: more saturated pink, mint, sky, lavender and vanilla for the machines.
+- Contact shadows on every quality level: a soft patch under each machine footprint and a soft
+  strip under every belt segment/corner (instanced; +1 draw call per machine).
+- Subtle vignette over the 3D view; ovens glow warmer when idle.
+- Start screen: colourful translucent gradient instead of a white haze.
+- Bug found on the way: a save with no machines crashed the camera framing (`pts[0]`) – now
+  frames the whole floor.
+
+**Files.** `src/rendering/SceneManager.js`, `src/rendering/ModelFactory.js`,
+`src/rendering/FactoryRenderer.js`, `src/rendering/ConveyorRenderer.js`, `src/styles.css`,
+`src/main.js`.
+
+**Tests.** Same factory, same camera, before/after screenshots (High and Low). `npm test` 99/99,
+build OK, tutorial with real input on desktop and iPhone 13, no console errors. Draw calls for the
+tutorial scene 142 → 174. Real-GPU look and FPS still to be checked on a device.
+
+**Scores.** Visual quality 8 → 8.5, First impression 8.5 → 9 (screenshots; taste is the user's call).
