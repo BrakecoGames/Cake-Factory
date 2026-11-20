@@ -16,11 +16,13 @@ import { BELT } from '../core/Config.js';
 import { CakeRenderer } from '../cakes/CakeRenderer.js';
 import { EffectsManager } from './EffectsManager.js';
 import {
-  MODEL_BUILDERS, buildAlertSprite, arrowGeometry, textures, roundedBox, cylinder, mat, PALETTE, contactShadowMaterial } from './ModelFactory.js';
+  MODEL_BUILDERS, buildAlertSprite, arrowGeometry, textures, roundedBox, cylinder, mat, PALETTE, contactShadowMaterial, bakeStatic, markShared, disposeOwned } from './ModelFactory.js';
 import { FROSTINGS, FLAVORS, DECORATIONS } from '../cakes/CakeModel.js';
 import { ConveyorRenderer, SURF } from './ConveyorRenderer.js';
 import { ShopRenderer } from './ShopRenderer.js';
 import { DOOR_GAP, DOOR_H } from './Storefront.js';
+import { CORRIDOR, WINGS, wingRect, corridorRect, worldMainRect } from '../simulation/Layout.js';
+import { buildDecor } from './Decor.js';
 import { pointAt } from '../machines/Paths.js';
 import { frost, decorate, stack } from '../cakes/CakeOperations.js';
 
@@ -32,7 +34,10 @@ const CAKE_Y = SURF + 0.005;
 const dirAngle = (d) => -d * Math.PI / 2; // rotation.y that points local +X along dir
 
 /** Unit floor quad (XZ plane) for contact shadows. */
-const CONTACT_PLANE = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const CONTACT_PLANE = markShared(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+
+/** Free the per-model merged geometry made by bakeStatic (shared geometry is cached elsewhere). */
+function disposeBaked(root) { disposeOwned(root); }
 
 export class FactoryRenderer {
   constructor(sceneManager, game) {
@@ -86,14 +91,53 @@ export class FactoryRenderer {
   }
 
   // ------------------------------------------------------------ coordinates
-  get W() { return this.game.sim.width; }
-  get H() { return this.game.sim.height; }
+  // World origin = centre of the MAIN HALL (wings and corridors lie around it).
+  get W() { return this.game.sim.main.w; }
+  get H() { return this.game.sim.main.h; }
+  get OX() { return this.game.sim.main.x; }
+  get OY() { return this.game.sim.main.y; }
   /** Grid units (cell centre = +0.5) → world. */
   gridToWorld(gx, gy, y = 0, out = new THREE.Vector3()) {
-    return out.set(gx - this.W / 2, y, gy - this.H / 2);
+    return out.set(gx - this.OX - this.W / 2, y, gy - this.OY - this.H / 2);
   }
   worldToCell(v) {
-    return { x: Math.floor(v.x + this.W / 2), y: Math.floor(v.z + this.H / 2) };
+    return { x: Math.floor(v.x + this.W / 2 + this.OX), y: Math.floor(v.z + this.H / 2 + this.OY) };
+  }
+
+  /**
+   * A wing slot's rectangle in GRID coordinates (may be negative while the
+   * grid is still just the main hall), for building and for-sale plots alike.
+   */
+  slotRect(id) {
+    const m = this.game.sim.main, wm = worldMainRect(m.w);
+    const r = wingRect(id);
+    return { x: r.x - wm.x + m.x, y: r.y - wm.y + m.y, w: r.w, h: r.h };
+  }
+  slotCorridor(id) {
+    const m = this.game.sim.main, wm = worldMainRect(m.w);
+    const r = corridorRect(id, wm);
+    return { x: r.x - wm.x + m.x, y: r.y - wm.y + m.y, w: r.w, h: r.h };
+  }
+  /** The unbought wing plot under a grid cell, or null. */
+  plotAt(cell) {
+    for (const w of WINGS) {
+      if (this.game.sim.layout.wings.includes(w.id)) continue;
+      const r = this.slotRect(w.id);
+      if (cell.x >= r.x && cell.y >= r.y && cell.x < r.x + r.w && cell.y < r.y + r.h) return w;
+    }
+    return null;
+  }
+  /** World-space bounds of everything built (hall, wings, corridors), for the camera. */
+  worldBounds() {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const add = (r) => {
+      const a = this.gridToWorld(r.x, r.y), b = this.gridToWorld(r.x + r.w, r.y + r.h);
+      minX = Math.min(minX, a.x); maxX = Math.max(maxX, b.x); minZ = Math.min(minZ, a.z); maxZ = Math.max(maxZ, b.z);
+    };
+    for (const r of this.game.sim.floorRects()) add(r);
+    // Unbought plots stay reachable so the player can find and buy them.
+    for (const w of WINGS) if (!this.game.sim.layout.wings.includes(w.id)) add(this.slotRect(w.id));
+    return { minX, maxX, minZ, maxZ };
   }
   footprintCenter(type, x, y, rot) {
     const def = getDef(type);
@@ -149,8 +193,9 @@ export class FactoryRenderer {
         piece(side, gap / 2 + side / 2);
         piece(gap, 0, 2.2 - DOOR_H, DOOR_H + (2.2 - DOOR_H) / 2);
       } else piece(len, 0);
-      // Shelves with jars.
+      // Shelves with jars (none in a doorway).
       for (let i = -len / 2 + 2; shelves && i < len / 2 - 1; i += 4) {
+        if (gap > 0 && Math.abs(i) < gap / 2 + 1.3) continue;
         const shelf = new THREE.Mesh(roundedBox(2, 0.08, 0.4, 0.03), shelfMat);
         shelf.position.set(i, 1.3, 0.3); g.add(shelf);
         const colors = [PALETTE.pink, PALETTE.mint, PALETTE.vanilla, PALETTE.sky, PALETTE.lavender];
@@ -166,7 +211,10 @@ export class FactoryRenderer {
       this.walls.push(g);
     };
     // The east wall gets no jar shelves: the Cake Shop display cabinet stands there.
-    mk(W + 9, 0, -1); mk(W + 9, 0, 1); mk(H + 9, -1, 0); mk(H + 9, 1, 0, false, DOOR_GAP);
+    const wings = this.game.sim.layout.wings;
+    const door = (id) => (wings.includes(id) ? CORRIDOR + 0.6 : 0);
+    mk(W + 9, 0, -1, true, door('north')); mk(W + 9, 0, 1, true, door('south'));
+    mk(H + 9, -1, 0, true, door('west')); mk(H + 9, 1, 0, false, DOOR_GAP);
     wallMat.dispose();
 
     // Bakery props around the factory floor (outside the buildable grid).
@@ -175,8 +223,137 @@ export class FactoryRenderer {
       [-W / 2 - 1.8, H / 2 - 2, 'plant'], [W / 2 + 1.7, -H / 2 + 2.5, 'crate'], [W / 2 + 1.6, -H / 2 + 4, 'crate'],
       [-2, -H / 2 - 1.8, 'plant'], [4, -H / 2 - 1.7, 'sack'], [3, H / 2 + 1.8, 'crate'], [-5, H / 2 + 1.7, 'sack'],
     ];
-    for (const [x, z, kind] of props) env.add(this._prop(kind, x, z));
+    // Keep props out of corridors.
+    const inCorridor = (x, z) => wings.some((id) => {
+      const r = this.slotCorridor(id), a = this.gridToWorld(r.x, r.y), b = this.gridToWorld(r.x + r.w, r.y + r.h);
+      return x > a.x - 1.2 && x < b.x + 1.2 && z > a.z - 1.2 && z < b.z + 1.2;
+    });
+    for (const [x, z, kind] of props) if (!inCorridor(x, z)) env.add(this._prop(kind, x, z));
+    this._buildWings(env);
+    // Funny animated details around the hall (cat, robot vacuum, balloons, …).
+    this.decor = buildDecor(this, env, inCorridor);
     this.root.add(env);
+  }
+
+  /** Floors, low walls and entrance arches of bought wings and corridors; for-sale plots for the rest. */
+  _buildWings(env) {
+    const t = textures();
+    const sim = this.game.sim;
+    const lines = [];
+    const wallMat = mat('#e897b2', { roughness: 0.7 });
+    const capMat = mat(PALETTE.cream);
+    const world = (gx, gy, y = 0) => this.gridToWorld(gx, gy, y);
+    const floorPatch = (r, color = null) => {
+      const c = world(r.x + r.w / 2, r.y + r.h / 2);
+      let m;
+      if (color) m = mat(color, { roughness: 0.9 });
+      else { const tex = t.floor.clone(); tex.needsUpdate = true; tex.repeat.set(r.w / 2, r.h / 2); m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }); }
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.h), m);
+      f.rotation.x = -Math.PI / 2; f.position.set(c.x, color ? -0.02 : 0, c.z); f.receiveShadow = true;
+      env.add(f);
+      return f;
+    };
+    // Low wall along a grid edge from (x0,y0) to (x1,y1) (axis aligned), pushed outward by `out`.
+    const lowWall = (x0, y0, x1, y1, ox, oy) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      if (len < 0.05) return;
+      const c = world((x0 + x1) / 2 + ox * 0.12, (y0 + y1) / 2 + oy * 0.12);
+      const along = x0 === x1 ? 'z' : 'x';
+      const geo = along === 'x' ? roundedBox(len + 0.24, 0.5, 0.24, 0.05) : roundedBox(0.24, 0.5, len + 0.24, 0.05);
+      const w = new THREE.Mesh(geo, wallMat); w.position.set(c.x, 0.25, c.z); w.castShadow = true; w.receiveShadow = true;
+      const capGeo = along === 'x' ? roundedBox(len + 0.3, 0.07, 0.3, 0.03) : roundedBox(0.3, 0.07, len + 0.3, 0.03);
+      const cap = new THREE.Mesh(capGeo, capMat); cap.position.set(c.x, 0.52, c.z);
+      env.add(w, cap);
+    };
+    const gridLines = (r) => {
+      for (let x = r.x; x <= r.x + r.w; x++) { const a = world(x, r.y, 0.003), b = world(x, r.y + r.h, 0.003); lines.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+      for (let y = r.y; y <= r.y + r.h; y++) { const a = world(r.x, y, 0.003), b = world(r.x + r.w, y, 0.003); lines.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+    };
+    for (const w of WINGS) {
+      const built = sim.layout.wings.includes(w.id);
+      const r = this.slotRect(w.id);
+      const cr = this.slotCorridor(w.id);
+      if (!built) { this._forSalePlot(env, w, r); continue; }
+      // Ground around the wing and its corridor.
+      floorPatch({ x: r.x - 3, y: r.y - 3, w: r.w + 6, h: r.h + 6 }, '#ad7f9f');
+      floorPatch(r); gridLines(r);
+      if (cr.w > 0 && cr.h > 0) {
+        floorPatch({ x: cr.x - 1.5, y: cr.y, w: cr.w + 3, h: cr.h }, '#ad7f9f');
+        floorPatch(cr); gridLines(cr);
+      }
+      const vertical = w.id !== 'west';
+      // Wing walls with an opening towards the hall.
+      const { x, y } = r, X = r.x + r.w, Y = r.y + r.h;
+      const o0 = vertical ? cr.x : cr.y, o1 = o0 + CORRIDOR;
+      const sideWithDoor = w.id === 'north' ? 'bottom' : w.id === 'south' ? 'top' : 'right';
+      const edge = (name, a0, a1, fixed, ox, oy, horizontal) => {
+        const seg = (p, q) => (horizontal ? lowWall(p, fixed, q, fixed, ox, oy) : lowWall(fixed, p, fixed, q, ox, oy));
+        if (name === sideWithDoor) { seg(a0, o0); seg(o1, a1); } else seg(a0, a1);
+      };
+      edge('top', x, X, y, 0, -1, true); edge('bottom', x, X, Y, 0, 1, true);
+      edge('left', y, Y, x, -1, 0, false); edge('right', y, Y, X, 1, 0, false);
+      // Corridor side walls.
+      if (cr.w > 0 && cr.h > 0) {
+        if (vertical) { lowWall(cr.x, cr.y, cr.x, cr.y + cr.h, -1, 0); lowWall(cr.x + cr.w, cr.y, cr.x + cr.w, cr.y + cr.h, 1, 0); }
+        else { lowWall(cr.x, cr.y, cr.x + cr.w, cr.y, 0, -1); lowWall(cr.x, cr.y + cr.h, cr.x + cr.w, cr.y + cr.h, 0, 1); }
+      }
+      // Entrance arch with the wing's name where the corridor meets the wing.
+      const ax = vertical ? cr.x + CORRIDOR / 2 : X, ay = vertical ? (w.id === 'north' ? Y : y) : cr.y + CORRIDOR / 2;
+      env.add(this._arch(world(ax, ay), vertical, w.name));
+    }
+    if (lines.length) {
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+      env.add(new THREE.LineSegments(lg, this.gridLines.material));
+    }
+  }
+
+  _signTexture(lines, bg = '#ffffff', fg = '#d94a7c') {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = bg; g.beginPath(); g.roundRect(4, 4, 248, 120, 22); g.fill();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    lines.forEach(([text, size, color], i) => { g.fillStyle = color || fg; g.font = `bold ${size}px "Fredoka", sans-serif`; g.fillText(text, 128, lines.length === 1 ? 66 : 42 + i * 48); });
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  _arch(pos, vertical, name) {
+    const g = new THREE.Group();
+    g.position.copy(pos);
+    if (!vertical) g.rotation.y = Math.PI / 2;
+    const half = CORRIDOR / 2 + 0.25;
+    for (const s of [-1, 1]) {
+      const post = new THREE.Mesh(roundedBox(0.22, 2.1, 0.22, 0.06), mat(PALETTE.pinkDark)); post.position.set(s * half, 1.05, 0); post.castShadow = true; g.add(post);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), mat(PALETTE.vanilla)); ball.position.set(s * half, 2.22, 0); g.add(ball);
+    }
+    const beam = new THREE.Mesh(roundedBox(half * 2 + 0.3, 0.5, 0.14, 0.06), mat(PALETTE.pink)); beam.position.set(0, 1.95, 0); beam.castShadow = true; g.add(beam);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.5), new THREE.MeshBasicMaterial({ map: this._signTexture([[name.toUpperCase(), 40]], '#fff6ea'), transparent: true }));
+    sign.position.set(0, 1.95, 0.08); g.add(sign);
+    const back = sign.clone(); back.rotation.y = Math.PI; back.position.z = -0.08; g.add(back);
+    return g;
+  }
+
+  /** Dashed plot with a FOR SALE sign; clicking the plot opens the wing purchase. */
+  _forSalePlot(env, w, r) {
+    const c = this.gridToWorld(r.x + r.w / 2, r.y + r.h / 2);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.h), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.1, depthWrite: false }));
+    ground.rotation.x = -Math.PI / 2; ground.position.set(c.x, 0.004, c.z); env.add(ground);
+    const pts = [];
+    const dash = (x0, z0, x1, z1) => { const n = Math.floor(Math.hypot(x1 - x0, z1 - z0) / 0.8); for (let i = 0; i < n; i += 2) { const a = i / n, b = (i + 1) / n; pts.push(x0 + (x1 - x0) * a, 0.02, z0 + (z1 - z0) * a, x0 + (x1 - x0) * b, 0.02, z0 + (z1 - z0) * b); } };
+    const x0 = c.x - r.w / 2, x1 = c.x + r.w / 2, z0 = c.z - r.h / 2, z1 = c.z + r.h / 2;
+    dash(x0, z0, x1, z0); dash(x1, z0, x1, z1); dash(x1, z1, x0, z1); dash(x0, z1, x0, z0);
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    env.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.8 })));
+    const sign = new THREE.Group(); sign.position.set(c.x, 0, c.z);
+    const post = new THREE.Mesh(roundedBox(0.14, 1.6, 0.14, 0.04), mat('#c98a5a')); post.position.set(0, 0.8, -0.14); post.castShadow = true; sign.add(post);
+    const board = new THREE.Mesh(roundedBox(2.3, 1.2, 0.1, 0.06), mat('#ffffff')); board.position.y = 1.75; board.castShadow = true; sign.add(board);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshBasicMaterial({ map: this._signTexture([['FOR SALE', 44, '#d94a7c'], [`$${w.cost.toLocaleString('en-US')}`, 40, '#2e9e78']], '#fff6ea') }));
+    face.position.set(0, 1.75, 0.06); sign.add(face);
+    const backFace = face.clone(); backFace.rotation.y = Math.PI; backFace.position.z = -0.06; sign.add(backFace);
+    sign.rotation.y = Math.PI / 4; // faces the default camera
+    sign.userData.forSale = w.id;
+    env.add(sign);
   }
 
   _prop(kind, x, z) {
@@ -253,8 +430,9 @@ export class FactoryRenderer {
 
   // ------------------------------------------------------------ machines
   fullSync() {
-    for (const v of this.machineViews.values()) this.root.remove(v.group);
+    for (const v of this.machineViews.values()) { this.root.remove(v.group); disposeBaked(v.group); }
     this.machineViews.clear();
+    if (this.env) disposeBaked(this.env);
     this._buildEnvironment();
     this.shop?.rebuild();
     for (const e of this.game.sim.entities.values()) if (e.kind === 'machine') this._createMachineView(e);
@@ -263,6 +441,15 @@ export class FactoryRenderer {
 
   _createMachineView(e) {
     const built = MODEL_BUILDERS[e.type]();
+    // Fewer draw calls: merge the model's static parts; animated / recoloured parts stay separate.
+    const keepObj = [], keepMat = [];
+    const collect = (v) => {
+      if (!v || typeof v !== 'object') return;
+      if (Array.isArray(v)) { v.forEach(collect); return; }
+      if (v.isObject3D) keepObj.push(v); else if (v.isMaterial) keepMat.push(v);
+    };
+    Object.values(built.parts || {}).forEach(collect);
+    bakeStatic(built.group, keepObj, keepMat);
     // Contact shadow under the footprint (model space: w along X, h along Z at rotation 0).
     const shade = new THREE.Mesh(CONTACT_PLANE, contactShadowMaterial());
     shade.scale.set(e.def.w + 0.45, 1, e.def.h + 0.45);
@@ -314,7 +501,7 @@ export class FactoryRenderer {
   _onRemoved(e) {
     this.beltsDirty = true;
     const v = this.machineViews.get(e.id);
-    if (v) { this.root.remove(v.group); this.machineViews.delete(e.id); }
+    if (v) { this.root.remove(v.group); disposeBaked(v.group); this.machineViews.delete(e.id); }
   }
   _onChanged(e) {
     this.beltsDirty = true;
@@ -707,6 +894,7 @@ export class FactoryRenderer {
     if (this.beltsDirty) this._rebuildBelts();
     this.conv.updateColors(this.preview?.replaced, this.time);
     this.conv.scroll(this.game.sim.beltSpeed, dt); // belt surface moves exactly as fast as the cakes
+    this.decor?.update(dt);
     this._updateWalls();
 
     // Cakes on belts (interpolated) + cakes waiting in machine buffers.

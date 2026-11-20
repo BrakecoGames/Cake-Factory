@@ -7,6 +7,8 @@
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
 import { RENDER } from '../core/Config.js';
 
 const SURF = RENDER.BELT_SURF;
@@ -16,15 +18,37 @@ export const PALETTE = {
   vanilla: '#ffd36e', sky: '#5fb3ff', lavender: '#a58cff', white: '#ffffff', metal: '#b7c0cd', dark: '#3b2f3a',
 };
 
+/**
+ * Resources shared between models (caches). Everything NOT marked here belongs
+ * to one model and is freed when that model goes away (see disposeOwned).
+ * A WeakSet, because Texture.clone() would copy a userData flag.
+ */
+const _shared = new WeakSet();
+export const markShared = (x) => { if (x) _shared.add(x); return x; };
+export const isShared = (x) => _shared.has(x);
+
+/** Free geometries, materials and textures under `root` that are not shared. */
+export function disposeOwned(root) {
+  root.traverse((o) => {
+    if (o.geometry && !isShared(o.geometry)) o.geometry.dispose();
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of mats) {
+      if (isShared(m)) continue;
+      for (const k of ['map', 'alphaMap']) if (m[k] && !isShared(m[k])) m[k].dispose();
+      m.dispose();
+    }
+  });
+}
+
 const geoCache = new Map();
 export function roundedBox(w, h, d, r = 0.06, seg = 3) {
   const k = `rb:${w}:${h}:${d}:${r}:${seg}`;
-  if (!geoCache.has(k)) geoCache.set(k, new RoundedBoxGeometry(w, h, d, seg, r));
+  if (!geoCache.has(k)) geoCache.set(k, markShared(new RoundedBoxGeometry(w, h, d, seg, r)));
   return geoCache.get(k);
 }
 export function cylinder(rt, rb, h, seg = 20) {
   const k = `cy:${rt}:${rb}:${h}:${seg}`;
-  if (!geoCache.has(k)) geoCache.set(k, new THREE.CylinderGeometry(rt, rb, h, seg));
+  if (!geoCache.has(k)) geoCache.set(k, markShared(new THREE.CylinderGeometry(rt, rb, h, seg)));
   return geoCache.get(k);
 }
 
@@ -32,7 +56,7 @@ const matCache = new Map();
 export function mat(color, opts = {}) {
   const k = `${color}|${JSON.stringify(opts)}`;
   if (!matCache.has(k)) {
-    matCache.set(k, new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05, ...opts }));
+    matCache.set(k, markShared(new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05, ...opts })));
   }
   return matCache.get(k);
 }
@@ -50,11 +74,61 @@ function canvasTexture(w, h, draw, { repeat = false } = {}) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c);
+  const t = markShared(new THREE.CanvasTexture(c));
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
   return t;
+}
+
+const _bakedMats = new Map();
+/**
+ * Merge the static, opaque meshes under `group` into a few vertex-coloured
+ * meshes (one per surface type: matte / satin / metal) – one or a few draw
+ * calls per model instead of dozens. Meshes in `keepObjects` (and their
+ * children) and meshes using a material in `keepMaterials` stay separate,
+ * because the game animates or recolours them.
+ */
+export function bakeStatic(group, keepObjects = [], keepMaterials = []) {
+  group.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const skip = new Set();
+  for (const k of keepObjects) k?.traverse?.((o) => skip.add(o));
+  const skipMat = new Set(keepMaterials);
+  const buckets = new Map();
+  group.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || skip.has(o)) return;
+    const m = o.material;
+    if (!m || Array.isArray(m) || !m.isMeshStandardMaterial || skipMat.has(m) || m.transparent || m.map || m.alphaMap
+      || (m.emissive && m.emissive.getHex() !== 0) || m.side !== THREE.FrontSide) return;
+    const key = `${Math.round(m.metalness * 4)}|${Math.round(m.roughness * 4)}`;
+    if (!buckets.has(key)) buckets.set(key, { metalness: Math.round(m.metalness * 4) / 4, roughness: Math.round(m.roughness * 4) / 4, parts: [] });
+    buckets.get(key).parts.push(o);
+  });
+  for (const b of buckets.values()) {
+    if (b.parts.length < 2) continue;
+    const geos = b.parts.map((o) => {
+      // Mixed indexed / non-indexed geometries cannot be merged: make them all non-indexed.
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      const n = g.attributes.position.count, col = new Float32Array(n * 3), c = o.material.color;
+      for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    });
+    const merged = mergeGeometries(geos, false);
+    for (const g of geos) g.dispose();
+    if (!merged) continue;
+    const key = `${b.metalness}|${b.roughness}`;
+    if (!_bakedMats.has(key)) _bakedMats.set(key, markShared(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: b.metalness, roughness: b.roughness })));
+    const cast = b.parts.some((o) => o.castShadow);
+    for (const o of b.parts) o.parent.remove(o);
+    merged.userData.baked = true;
+    const mesh = new THREE.Mesh(merged, _bakedMats.get(key));
+    mesh.castShadow = cast; mesh.receiveShadow = true;
+    group.add(mesh);
+  }
 }
 
 let _contactMat = null;
@@ -70,7 +144,7 @@ export function contactShadowMaterial() {
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
   const tex = new THREE.CanvasTexture(c);
-  _contactMat = new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: tex, transparent: true, opacity: 0.42, depthWrite: false });
+  _contactMat = markShared(new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: markShared(tex), transparent: true, opacity: 0.42, depthWrite: false }));
   return _contactMat;
 }
 
@@ -85,7 +159,7 @@ export function contactStripMaterial() {
   gr.addColorStop(0.7, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
   const tex = new THREE.CanvasTexture(c);
-  _stripMat = new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: tex, transparent: true, opacity: 0.36, depthWrite: false });
+  _stripMat = markShared(new THREE.MeshBasicMaterial({ color: '#3a1630', alphaMap: markShared(tex), transparent: true, opacity: 0.36, depthWrite: false }));
   return _stripMat;
 }
 
@@ -260,7 +334,7 @@ function flagTexture(text, color) {
     const g = c.getContext('2d');
     g.fillStyle = color; g.beginPath(); g.roundRect(4, 4, 56, 56, 14); g.fill();
     g.fillStyle = '#fff'; g.font = 'bold 40px "Fredoka", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 32, 35);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; _flagTex[k] = t;
+    const t = markShared(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; _flagTex[k] = t;
   }
   return _flagTex[k];
 }
@@ -290,7 +364,7 @@ function displayTexture() {
   g.fillStyle = '#1d1a22'; g.beginPath(); g.roundRect(0, 0, 128, 48, 12); g.fill();
   g.fillStyle = '#ff3b3b'; g.font = 'bold 26px monospace'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText('000', 120, 25);
   for (const [x, col] of [[16, '#5aa8ff'], [34, '#5aa8ff'], [52, '#4fd1ff']]) { g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); g.arc(x, 24, 6, 0, Math.PI * 2); g.stroke(); }
-  _displayTex = new THREE.CanvasTexture(c); _displayTex.colorSpace = THREE.SRGBColorSpace;
+  _displayTex = markShared(new THREE.CanvasTexture(c)); _displayTex.colorSpace = THREE.SRGBColorSpace;
   return _displayTex;
 }
 

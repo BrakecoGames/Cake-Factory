@@ -714,3 +714,52 @@ Generation: 300 contracts in 0.2 s, then cached (10,000 reads in 1 ms).
 
 **Scores.** Progression 8 → 9, Retention potential 8 → 9, Gameplay 8 → 8.5 (estimates until real
 players have played).
+
+---
+
+## Iteration 22 – Buyable wings joined by belt corridors; funny decor; fewer draw calls (user request)
+
+**Requests.** (1) Make the surroundings more fun. (2) Let players buy new rooms, joined to the
+first by corridors wide enough for conveyor belts.
+
+**Change – wings.**
+- `src/simulation/Layout.js` (pure): North / West / South wing slots (16×16; the east side is the
+  Cake Shop), each joined by a **4-cell-wide corridor** (up to four parallel belts). Slots are
+  computed from the hall's MAXIMUM size, so hall expansions never collide with wings.
+- `Grid` got a floor mask: cells outside halls/corridors are out of bounds, so every existing rule
+  (machine placement, belt dragging, hand-off, moving) works unchanged in the new shapes.
+- `FactorySimulation.addWing()`: the first wing converts the grid once into a 58×80 world (all
+  entities and cakes shift with it); afterwards Factory Expansion grows the hall in place and the
+  corridor shortens. Layout is saved (`factory.layout`, validated on load; bad data falls back).
+  Saves without wings load exactly as before.
+- `Game.buyWing()` with fixed slot prices ($6,000 / $15,000 / $35,000), `wingBuilt` event, two
+  milestones ("Grand Opening", "Cake Campus").
+- Rendering: world origin = centre of the main hall (shop and walls stay put); door openings in
+  the tall hall walls where corridors leave; wing floors, low walls with a cream cap, corridor side
+  walls and an entrance arch with the wing's name; unbought slots show a dashed **FOR SALE** plot
+  with the price – clicking it opens the purchase dialog (also in Bakery Upgrades). The camera
+  bounds cover wings, and the camera glides to a new wing after buying.
+- Bug fixed: loading derived the expansion level from the grid width (wrong in world mode).
+
+**Change – decor** (`src/rendering/Decor.js`, outside the floor, kept clear of corridors): napping
+cat with breathing, swaying tail and floating "Zzz"; robot vacuum in a chef's hat with a cake slice
+on top; a mouse that dashes out of a hole in the north wall every 9 s; giant cupcake mascot with
+googly eyes that look around; bobbing balloons; gumball machine; cake clock on the wall showing the
+real time.
+
+**Change – performance.** `bakeStatic()` merges the static, opaque parts of every model into a few
+vertex-coloured meshes (grouped by surface type, so metal keeps its shine); animated or recoloured
+parts stay separate. Used for decor and all machines. Measured (36×36 hall, 70 machines, with
+shadows): **1,442 → 881 draw calls**; tutorial scene 198. Per-model geometry/materials are now
+freed when machines are removed or the environment is rebuilt (40 build/remove cycles: +90 → +10
+geometries; 3 rebuilds: +165 → +29).
+
+**Tests.** 113/113 (5 new in `tests/wings.test.js`: layout never overlaps the max hall and
+corridors are 4 wide; buying a wing keeps a running factory delivering; walls are not floor; **a
+belt line from an oven in the wing through the corridor into the hall delivers cakes**; hall
+expansion after wings moves nothing and shortens the corridor; wings survive save/load and bad
+layouts fall back). Browser: FOR SALE plot click → dialog → purchase; two wings with belts through
+the corridor; save + reload with a wing; hall expansion after a wing; all layout sweeps; tutorial
+desktop + phone; old save; contract switch; no console errors. Screenshots checked.
+
+**Not tested.** Real-device FPS (software renderer only).

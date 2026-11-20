@@ -15,6 +15,7 @@ import { OrderManager } from '../gameplay/OrderManager.js';
 import { TutorialManager } from '../gameplay/TutorialManager.js';
 import { MilestoneManager } from '../gameplay/MilestoneManager.js';
 import { DIR } from '../simulation/Grid.js';
+import { WINGS } from '../simulation/Layout.js';
 import { ORDER_DEFS, unlocksAfter, getOrderDef, orderIndexById, UNLOCK_KINDS, CONTRACT_UNLOCKS } from '../gameplay/OrderDefs.js';
 import { CONFIG_OPTIONS, ROTATOR_MODE_LEVEL } from '../machines/MachineDefs.js';
 import { FLAVORS, FROSTINGS, DECORATIONS } from '../cakes/CakeModel.js';
@@ -108,6 +109,7 @@ export class Game {
     const done = this.orders.completed;
     return {
       cakes: this.stats.cakes, orders: done.length, bonuses: done.filter((c) => c.bonus).length,
+      wings: this.sim.layout.wings.length,
       showpieces: done.filter((c) => { const m = /^contract_(\d+)$/.exec(c.id); return m && Number(m[1]) % 5 === 0; }).length,
       machines, levelUps: maxLevel - 1, earned: this.economy.totalEarned, expansions: this.global.size - 1,
     };
@@ -323,6 +325,26 @@ export class Game {
     return { ok: true, order: this.orders.current };
   }
 
+  // ------------------------------------------------------------ wings
+  /** Price of a wing slot (fixed per slot, shown on its FOR SALE sign). */
+  wingPrice(id) { return WINGS.find((w) => w.id === id)?.cost ?? 0; }
+
+  /** Buy a new wing ('north' | 'west' | 'south'), joined to the hall by a wide corridor. */
+  buyWing(id) {
+    const def = WINGS.find((w) => w.id === id);
+    if (!def) return { ok: false };
+    if (this.sim.layout.wings.includes(id)) return this._fail(`${def.name} is already built`);
+    const cost = def.cost;
+    if (!this.economy.spend(cost)) return this._fail('Not enough money');
+    const shift = this.sim.addWing(id);
+    this.bus.emit('factoryResized', { wing: id, shift });
+    this.bus.emit('reset');
+    this.bus.emit('wingBuilt', { id, name: def.name });
+    this.bus.emit('money');
+    this.requestSave();
+    return { ok: true, cost, shift };
+  }
+
   rotateEntity(id) {
     const e = this.sim.entities.get(id);
     if (!e) return { ok: false };
@@ -390,7 +412,7 @@ export class Game {
     const g = s.global || {};
     this.global = { belt: lvl(g.belt, 'belt'), reputation: lvl(g.reputation, 'reputation'), size: lvl(g.size, 'size') };
     // The saved grid size is authoritative; keep the size level consistent with it.
-    const idx = GLOBAL_UPGRADES.size.values.indexOf(this.sim.width);
+    const idx = GLOBAL_UPGRADES.size.values.indexOf(this.sim.main.w);
     if (idx >= 0) this.global.size = idx + 1;
     this.sim.beltSpeed = BELT.SPEED * this.globalValue('belt');
     this.milestones = new MilestoneManager();

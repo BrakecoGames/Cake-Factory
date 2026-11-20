@@ -350,6 +350,12 @@ export class InputController {
   _click(cell) {
     if (!cell) return;
     const sim = this.game.sim;
+    // Clicking an unbought wing plot (outside the floor) opens its purchase.
+    if (!sim.grid.inBounds(cell.x, cell.y)) {
+      const plot = this.fr.plotAt?.(cell);
+      if (plot) { this.audio.play('click'); this.ui.openWing?.(plot.id); }
+      return;
+    }
     const ent = sim.entityAt(cell.x, cell.y);
     switch (this.tool) {
       case 'select':

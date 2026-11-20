@@ -190,6 +190,19 @@ game only through `Game` actions (`buildMachine`, `buildBeltPath`, `removeEntity
 - New machines: **Layer Stacker** (1×2, main input = bottom, side input = top, max 4 layers) and
   **Decorator** (1×1, decoration picked in its panel, per-quadrant from level 3). Hotkeys 9 / 0.
 
+## Wings, corridors and decor
+- **New wings** (North $6,000 · West $15,000 · South $35,000): 16×16 halls joined to the main
+  hall by a **4-cell-wide corridor** – belts (up to 4 side by side) run through it. Buy from the
+  FOR SALE plots in the world or in Bakery Upgrades. `src/simulation/Layout.js` holds the layout;
+  the grid has a floor mask, so walls and the outside are simply "out of bounds" for every
+  placement rule. The first wing converts the grid once into a 58×80 world that already reserves
+  the hall's maximum size, so later hall expansions never move anything again. Old saves and
+  players without wings are unchanged.
+- **Decor** (`src/rendering/Decor.js`): a napping cat with Zzz, a robot vacuum in a chef's hat, a
+  mouse that dashes out of its hole, a googly-eyed cupcake mascot, balloons, a gumball machine and a
+  cake clock showing real time. Static parts are merged (`bakeStatic`) to keep draw calls low;
+  machine models use the same merging.
+
 ## Known limitations (honest status)
 - Rendering was **not** verified in a real GPU browser in this session (no network for Three.js
   in the build sandbox). Logic, UI flows, save/reload were verified headless with a Three.js stub,

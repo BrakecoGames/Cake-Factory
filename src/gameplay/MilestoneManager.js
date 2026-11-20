@@ -27,6 +27,8 @@ export const MILESTONES = Object.freeze([
   { id: 'earned_100k', name: 'Cake Tycoon', desc: 'Earn $100,000 in total', stat: 'earned', goal: 100000, reward: 5000 },
   { id: 'cakes_1000', name: 'Legendary Bakery', desc: 'Deliver 1,000 correct cakes', stat: 'cakes', goal: 1000, reward: 6000 },
   { id: 'expand_4', name: 'Mega Factory', desc: 'Expand the factory to full size', stat: 'expansions', goal: 4, reward: 8000 },
+  { id: 'wing_1', name: 'Grand Opening', desc: 'Build a new wing', stat: 'wings', goal: 1, reward: 1500 },
+  { id: 'wing_3', name: 'Cake Campus', desc: 'Build all three wings', stat: 'wings', goal: 3, reward: 20000 },
   // Endless play
   { id: 'showpiece_1', name: 'Showstopper', desc: 'Complete a Showpiece order', stat: 'showpieces', goal: 1, reward: 1200 },
   { id: 'orders_30', name: 'Bakery Legend', desc: 'Complete 30 orders', stat: 'orders', goal: 30, reward: 6000 },

@@ -106,8 +106,8 @@ async function boot() {
   ui.worldToScreen = ({ gx, gy, h }) => camera.project(fr.gridToWorld(gx, gy, h), sm.canvas.getBoundingClientRect());
 
   const frameCamera = () => {
-    camera.setBounds(game.sim.width / 2, game.sim.height / 2);
-    const fit = Math.min(1.25, Math.max(0.6, 18 / Math.max(game.sim.width, game.sim.height)));
+    camera.setBoundsRect(fr.worldBounds());
+    const fit = Math.min(1.25, Math.max(0.6, 18 / Math.max(game.sim.main.w, game.sim.main.h)));
     camera.focus(1.5, 0, innerWidth < 820 ? fit * 0.85 : fit);
   };
   frameCamera();
@@ -124,17 +124,24 @@ async function boot() {
     if (game.tutorial.active) { const c = fr.shop.standPos; pts.push(c.clone(), c.clone().setY(2.6)); }
     // An empty factory (everything removed): frame the whole floor instead.
     if (!pts.length) {
-      const W = game.sim.width, H = game.sim.height;
-      pts.push(fr.gridToWorld(0, 0, 0), fr.gridToWorld(W, 0, 0), fr.gridToWorld(0, H, 0), fr.gridToWorld(W, H, 0));
+      const m = game.sim.main;
+      pts.push(fr.gridToWorld(m.x, m.y, 0), fr.gridToWorld(m.x + m.w, m.y, 0), fr.gridToWorld(m.x, m.y + m.h, 0), fr.gridToWorld(m.x + m.w, m.y + m.h, 0));
     }
-    camera.setBounds(game.sim.width / 2, game.sim.height / 2);
+    camera.setBoundsRect(fr.worldBounds());
     // Extra margin (in cells) so the line between the machines is easy to hit.
     const grow = 1.5, mid = pts.reduce((a, p) => a.add(p), pts[0].clone().multiplyScalar(0)).multiplyScalar(1 / Math.max(1, pts.length));
     for (const p of pts) { p.x += Math.sign(p.x - mid.x) * grow; p.z += Math.sign(p.z - mid.z) * grow; }
     camera.frame(pts, ui.freeRect(), sm.canvas.getBoundingClientRect(), innerWidth < 820 ? 1.6 : 1.25);
   };
-  game.bus.on('factoryResized', () => camera.setBounds(game.sim.width / 2, game.sim.height / 2));
-  game.bus.on('reset', () => camera.setBounds(game.sim.width / 2, game.sim.height / 2));
+  const updateBounds = () => camera.setBoundsRect(fr.worldBounds());
+  game.bus.on('factoryResized', updateBounds);
+  game.bus.on('reset', updateBounds);
+  game.bus.on('wingBuilt', ({ id }) => {
+    // Show the new wing: glide the camera to it.
+    const r = fr.slotRect(id), c = fr.gridToWorld(r.x + r.w / 2, r.y + r.h / 2);
+    updateBounds();
+    camera.focus(c.x * 0.6, c.z * 0.6, Math.min(camera.goalZoom, 0.8));
+  });
 
   const applySettings = () => {
     audio.setVolume(game.settings.volume);

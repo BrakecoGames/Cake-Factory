@@ -37,6 +37,12 @@ export class CameraController {
     this.bounds = { minX: -halfW - m, maxX: halfW + m + 3, minZ: -halfH - m, maxZ: halfH + m };
   }
 
+  /** Bounds from a world rectangle (wings and corridors included), plus the Cake Shop on the east. */
+  setBoundsRect(r) {
+    const m = 2;
+    this.bounds = { minX: r.minX - m, maxX: r.maxX + m + 3, minZ: r.minZ - m, maxZ: r.maxZ + m };
+  }
+
   resize(w, h) {
     this.viewW = w; this.viewH = h;
     this.aspect = w / Math.max(1, h);

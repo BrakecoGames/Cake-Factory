@@ -16,6 +16,7 @@ import { DIR_NAMES } from '../simulation/Grid.js';
 import { TUTORIAL_STEPS } from '../gameplay/TutorialManager.js';
 import { drawCake } from './CakePreview.js';
 import { COPYRIGHT, BELT, UPGRADES, GLOBAL_UPGRADES } from '../core/Config.js';
+import { WINGS, WING, CORRIDOR } from '../simulation/Layout.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -833,11 +834,24 @@ export class UI {
           ${max ? '' : `<button class="btn small primary" data-buy="${k}" ${g.economy.canAfford(cost) ? '' : 'disabled'}>Buy · $${cost.toLocaleString('en-US')}</button>`}
         </div>`;
       }).join('');
+      const wingCards = WINGS.map((w) => {
+        const built = g.sim.layout.wings.includes(w.id);
+        return `<div class="upg-card wing-card ${built ? 'built' : ''}">
+          <div class="upg-head"><b>🏗️ ${w.name}</b><span>${built ? '✓ Built' : ''}</span></div>
+          <div class="upg-desc">A new ${WING}×${WING} hall joined by a ${CORRIDOR}-cell-wide corridor – room for parallel conveyor belts.</div>
+          ${built ? '' : `<button class="btn small primary" data-wing="${w.id}" ${g.economy.canAfford(w.cost) ? '' : 'disabled'}>Build · $${w.cost.toLocaleString('en-US')}</button>`}
+        </div>`;
+      }).join('');
       $('modalCard').innerHTML = `<h2>Bakery Upgrades</h2>
         <p class="upg-intro">Factory-wide improvements. Upgrade single machines from their panel (or with the Upgrade tool, key U).</p>
         <div class="upg-grid">${cards}</div>
+        <div class="help-section">New wings</div>
+        <div class="upg-grid">${wingCards}</div>
         <div class="actions"><button class="btn primary" id="upgClose">Done</button></div>`;
       $('upgClose').onclick = () => this.closeModal();
+      for (const b of document.querySelectorAll('[data-wing]')) {
+        b.onclick = () => { this.closeModal(); this._buyWing(b.dataset.wing); };
+      }
       for (const b of document.querySelectorAll('[data-buy]')) {
         b.onclick = () => {
           const r = this.game.buyGlobal(b.dataset.buy);
@@ -849,6 +863,25 @@ export class UI {
     };
     this.openModal('');
     render();
+  }
+
+  /** Purchase dialog for a wing plot (from its FOR SALE sign or the upgrades panel). */
+  openWing(id) {
+    const w = WINGS.find((x) => x.id === id);
+    if (!w || this.game.sim.layout.wings.includes(id)) return;
+    const afford = this.game.economy.canAfford(w.cost);
+    this.openModal(`<h2>🏗️ ${w.name}</h2>
+      <p>A new ${WING}×${WING} production hall, joined to your bakery by a <b>${CORRIDOR}-cell-wide corridor</b>. Run conveyor belts through the corridor to bring cakes to the Delivery Station – or build a second station in the wing.</p>
+      <div class="actions"><button class="btn" id="wCancel">Not now</button><button class="btn primary" id="wBuy" ${afford ? '' : 'disabled'}>Build · $${w.cost.toLocaleString('en-US')}</button></div>
+      ${afford ? '' : `<p class="ms-intro">You need $${Math.ceil(w.cost - this.game.economy.money).toLocaleString('en-US')} more.</p>`}`);
+    $('wCancel').onclick = () => this.closeModal();
+    $('wBuy').onclick = () => { this.closeModal(); this._buyWing(id); };
+  }
+
+  _buyWing(id) {
+    const r = this.game.buyWing(id);
+    this.audio.play(r.ok ? 'complete' : 'invalid');
+    if (r.ok) { this.toast(`${WINGS.find((w) => w.id === id).name} is open – run belts through the corridor!`, 'good'); this._confetti(); }
   }
 
   /** Short names for a set of unlocks ("Layer Stacker, Cherry"). */

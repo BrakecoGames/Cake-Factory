@@ -210,7 +210,7 @@ export class ConveyorRenderer {
   _seg(tx, ty, dir, len, { tail = false, head = false, legs = true, owner = null, lift = 0 } = {}) {
     if (this.n.seg >= this.capacity) { this._grow = true; return; }
     const W = this.fr.W, H = this.fr.H;
-    const cx = tx + DX[dir] * len / 2 - W / 2, cz = ty + DY[dir] * len / 2 - H / 2;
+    const cx = tx + DX[dir] * len / 2 - this.fr.OX - W / 2, cz = ty + DY[dir] * len / 2 - this.fr.OY - H / 2;
     const yaw = dirAngle(dir);
     this._q.setFromAxisAngle(this._y, yaw);
     this._base.compose(this._p.set(cx, SURF + lift, cz), this._q, this._s.set(1, 1, 1));
@@ -248,7 +248,7 @@ export class ConveyorRenderer {
     const W = this.fr.W, H = this.fr.H;
     const k = right ? 1 : 0;
     this._q.setFromAxisAngle(this._y, dirAngle(inDir));
-    const c = this._p.set(b.x + 0.5 - W / 2, SURF, b.y + 0.5 - H / 2);
+    const c = this._p.set(b.x + 0.5 - this.fr.OX - W / 2, SURF, b.y + 0.5 - this.fr.OY - H / 2);
     this._m.compose(c, this._q, this._s.set(1, 1, 1));
     const i = this.n.corner[k]++;
     this.cTop[k].setMatrixAt(i, this._m);

@@ -55,15 +55,19 @@ export function rotatedSize(w, h, r) {
 }
 
 export class Grid {
-  constructor(width, height) {
+  /** @param {Uint8Array|null} floor  1 = buildable floor; null = every cell is floor. */
+  constructor(width, height, floor = null) {
     this.width = width;
     this.height = height;
     /** Entity id per cell, 0 = empty. */
     this.cells = new Int32Array(width * height);
+    this.floor = floor;
   }
 
+  /** True for cells that are floor (walls / outside count as out of bounds). */
   inBounds(x, y) {
-    return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    if (!(x >= 0 && y >= 0 && x < this.width && y < this.height)) return false;
+    return !this.floor || this.floor[y * this.width + x] === 1;
   }
 
   get(x, y) {

@@ -18,6 +18,7 @@
  */
 import { SIM, BELT } from '../core/Config.js';
 import { Grid, DX, DY, opposite } from './Grid.js';
+import { floorMask, floorRects, worldMainRect, WORLD_W, WORLD_H, WINGS, MAIN_MAX } from './Layout.js';
 import { getDef } from '../machines/MachineDefs.js';
 import { Machine, STATUS } from '../machines/Machine.js';
 import { Oven } from '../machines/Oven.js';
@@ -48,8 +49,10 @@ export class Belt {
 }
 
 export class FactorySimulation {
-  constructor(width, height) {
-    this.grid = new Grid(width, height);
+  constructor(width, height, layout = null) {
+    /** Main hall rectangle + bought wings (see Layout.js). */
+    this.layout = layout || { main: { x: 0, y: 0, w: width, h: height }, wings: [] };
+    this.grid = new Grid(width, height, floorMask(this.layout, width, height));
     /** @type {Map<number, Belt|Machine>} */
     this.entities = new Map();
     this.nextId = 1;
@@ -387,7 +390,15 @@ export class FactorySimulation {
    */
   expand(d) {
     if (!(d > 0)) return false;
+    if (this.layout.wings.length) {
+      // World mode: the hall grows inside its reserved box; nothing moves.
+      const s = Math.min(MAIN_MAX, this.layout.main.w + 2 * d);
+      this.layout.main = worldMainRect(s);
+      this._rebuildMask();
+      return true;
+    }
     const grid = new Grid(this.width + 2 * d, this.height + 2 * d);
+    this.layout.main = { x: 0, y: 0, w: grid.width, h: grid.height };
     this.grid = grid;
     for (const e of this.entities.values()) {
       e.x += d; e.y += d;
@@ -398,6 +409,46 @@ export class FactorySimulation {
     }
     this.orderDirty = true;
     return true;
+  }
+
+  // ------------------------------------------------------------ wings
+  /** Main hall rectangle in grid cells. */
+  get main() { return this.layout.main; }
+  /** Every floor rectangle (hall, wings, corridors). */
+  floorRects() { return floorRects(this.layout); }
+  /** The next wing that can be bought, or null. */
+  get nextWing() { return WINGS.find((w) => !this.layout.wings.includes(w.id)) || null; }
+
+  _rebuildMask() {
+    const old = this.grid;
+    this.grid = new Grid(old.width, old.height, floorMask(this.layout, old.width, old.height));
+    for (const e of this.entities.values()) this._occupy(e);
+    this.orderDirty = true;
+  }
+
+  /**
+   * Add a wing (and its corridor). The first wing converts the grid once into
+   * the world layout: everything shifts so the hall sits in its reserved box.
+   * Returns the shift { dx, dy } applied to existing entities.
+   */
+  addWing(id) {
+    if (this.layout.wings.includes(id) || !WINGS.some((w) => w.id === id)) return null;
+    let dx = 0, dy = 0;
+    if (!this.layout.wings.length) {
+      const m = worldMainRect(this.layout.main.w);
+      dx = m.x - this.layout.main.x; dy = m.y - this.layout.main.y;
+      this.layout.main = m;
+      this.grid = new Grid(WORLD_W, WORLD_H);
+      for (const e of this.entities.values()) {
+        e.x += dx; e.y += dy;
+        if (e.kind === 'belt') {
+          if (e.item) { e.item.x += dx; e.item.y += dy; e.item.px += dx; e.item.py += dy; }
+        } else e.computePorts();
+      }
+    }
+    this.layout.wings.push(id);
+    this._rebuildMask();
+    return { dx, dy };
   }
 
   // ------------------------------------------------------------ save/load
@@ -413,7 +464,7 @@ export class FactorySimulation {
         entities.push({ id: e.id, t: e.type, x: e.x, y: e.y, r: e.rot, lv: e.level, c: { ...e.config }, s: e.serializeState() });
       }
     }
-    return { w: this.width, h: this.height, nextId: this.nextId, tick: this.tick, entities };
+    return { w: this.width, h: this.height, nextId: this.nextId, tick: this.tick, entities, layout: JSON.parse(JSON.stringify(this.layout)) };
   }
 
   /**
@@ -421,7 +472,7 @@ export class FactorySimulation {
    * reported) instead of aborting, so one bad entity cannot wipe a factory.
    */
   static deserialize(data) {
-    const sim = new FactorySimulation(data.w, data.h);
+    const sim = new FactorySimulation(data.w, data.h, FactorySimulation._validLayout(data));
     sim.tick = data.tick | 0;
     const problems = [];
     for (const d of data.entities || []) {
@@ -451,6 +502,19 @@ export class FactorySimulation {
     }
     sim.nextId = Math.max(sim.nextId, data.nextId | 0);
     return { sim, problems };
+  }
+
+  /** Layout from a save, or null (= the whole grid is the main hall). */
+  static _validLayout(data) {
+    const L = data.layout;
+    if (!L || !L.main || !Array.isArray(L.wings)) return null;
+    const wings = L.wings.filter((id, i, a) => WINGS.some((w) => w.id === id) && a.indexOf(id) === i);
+    const m = L.main;
+    const ok = [m.x, m.y, m.w, m.h].every(Number.isInteger) && m.w >= 4 && m.h >= 4 && m.x >= 0 && m.y >= 0
+      && m.x + m.w <= data.w && m.y + m.h <= data.h;
+    if (!ok) return null;
+    if (wings.length && (data.w !== WORLD_W || data.h !== WORLD_H)) return null;
+    return { main: { x: m.x, y: m.y, w: m.w, h: m.h }, wings };
   }
 }
 

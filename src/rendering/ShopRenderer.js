@@ -67,8 +67,9 @@ export class ShopRenderer {
   }
 
   // ---------------------------------------------------------------- layout
-  get W() { return this.game.sim.width; }
-  get H() { return this.game.sim.height; }
+  // The shop belongs to the main hall (world origin = hall centre).
+  get W() { return this.game.sim.main.w; }
+  get H() { return this.game.sim.main.h; }
   /** Counter centre (world). The factory side is west (-X), customers stand east (+X). */
   get counterPos() { return new THREE.Vector3(this.W / 2 + 1.3, 0, 0); }
   get standPos() { return new THREE.Vector3(this.W / 2 + 2.45, 0, 0.1); }
