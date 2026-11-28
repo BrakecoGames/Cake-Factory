@@ -5,3 +5,4 @@ dist/
 
 # Reference photos (third-party, not redistributed)
 reference/
+__pycache__/
