@@ -167,7 +167,7 @@ game only through `Game` actions (`buildMachine`, `buildBeltPath`, `removeEntity
 - A cake on a replaced belt goes into the machine's matching input when possible; otherwise it is
   discarded with the usual poof + toast. Moving a machine onto belts works the same way.
 
-## Improvement loop (see GAME_IMPROVEMENT_LOG.md)
+## Improvement loop (see docs/rapporten/GAME_IMPROVEMENT_LOG.md)
 - Camera frames the factory into the screen area the panels leave free; dedicated layouts for
   phones (portrait and landscape), the 960×540 CrazyGames frame and desktop.
 - 18 milestones with rewards (level chip → Milestones panel); "how it works" cards for the

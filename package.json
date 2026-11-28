@@ -1,6 +1,6 @@
 {
   "name": "cake-factory-sweet-automation",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Cake Factory – Sweet Automation. © 2026 Brakeco Games.",
   "author": "Brakeco Games",
@@ -11,7 +11,8 @@
     "build": "vite build",
     "build:crazygames": "vite build --mode crazygames",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "archive": "node tools/archive.mjs"
   },
   "dependencies": {
     "three": "0.160.0"

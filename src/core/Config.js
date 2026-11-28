@@ -8,7 +8,7 @@
 
 export const GAME_TITLE = 'Cake Factory – Sweet Automation';
 export const COPYRIGHT = '© 2026 Brakeco Games';
-export const GAME_VERSION = '0.3.0-phase3';
+export const GAME_VERSION = '1.0.0';
 
 export const SIM = {
   /** Fixed simulation rate. 30 ticks/s keeps belts smooth with interpolation. */
